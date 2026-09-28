@@ -61,13 +61,7 @@ SHELL ["/bin/bash", "-c"]
 ARG SIZE=200G
 ARG PARALLEL_DOWNLOADS=30
 
-# OPTIONAL: Arch Linux server mirrors for super fast builds
-# set RANKMIRRORS to any value other that nothing, e.g. -e RANKMIRRORS=true
 RUN perl -i -p -e s/^\#Color/Color$'\n'ParallelDownloads\ =\ ${PARALLEL_DOWNLOADS:=30}/g /etc/pacman.conf 
-
-ARG RANKMIRRORS
-ARG MIRROR_COUNTRY=US
-ARG MIRROR_COUNT=10
 
 RUN tee /etc/pacman.d/mirrorlist <<< 'Server = https://geo.mirror.pkgbuild.com/$repo/os/$arch' \
     && tee -a /etc/pacman.d/mirrorlist <<< 'Server = http://mirror.rackspace.com/archlinux/$repo/os/$arch' \
@@ -78,16 +72,6 @@ RUN pacman -Sy archlinux-keyring --noconfirm \
     && rm -rf /etc/pacman.d/gnupg \
     && pacman-key --init \
     && pacman-key --populate archlinux
-
-RUN if [[ "${RANKMIRRORS}" ]]; then \
-        { pacman -Sy wget --noconfirm || pacman -Syu wget --noconfirm ; } \
-        ; wget -O ./rankmirrors "https://raw.githubusercontent.com/sickcodes/Docker-OSX/${BRANCH:=master}/rankmirrors" \
-        ; wget -O- "https://www.archlinux.org/mirrorlist/?country=${MIRROR_COUNTRY:-US}&protocol=https&use_mirror_status=on" \
-        | sed -e 's/^#Server/Server/' -e '/^#/d' \
-        | head -n "$((${MIRROR_COUNT:-10}+1))" \
-        | bash ./rankmirrors --verbose --max-time 5 - > /etc/pacman.d/mirrorlist \
-        && cat /etc/pacman.d/mirrorlist \
-    ; fi
 
 RUN tee -a /etc/pacman.d/gnupg/gpg.conf <<< 'keyserver hkp://keyserver.ubuntu.com' \
     && tee -a /etc/pacman.d/gnupg/gpg.conf <<< 'keyserver hkps://hkps.pool.sks-keyservers.net:443' \
