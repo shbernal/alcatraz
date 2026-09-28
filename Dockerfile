@@ -120,26 +120,14 @@ RUN if [[ "${LINUX}" == true ]]; then \
         && yes | sudo pacman -Scc \
     ; fi
 
-# optional --build-arg to change branches for testing
-ARG BRANCH=master
-ARG REPO='https://github.com/sickcodes/Docker-OSX.git'
-RUN git clone --recurse-submodules --depth 1 --branch "${BRANCH:=master}" "${REPO:=https://github.com/sickcodes/Docker-OSX.git}"
-
-# The serial generator looks for opencore-image-ng.sh here before downloading it.
-# Right after mkfs, mount often misses the new FAT filesystem and only tries the
-# filesystems the libguestfs appliance has loaded, so load vfat first.
-RUN sed -e '/^fish mount \/dev\/sda2 \//i fish modprobe vfat' \
-        ./Docker-OSX/osx-serial-generator/opencore-image-ng.sh > ./opencore-image-ng.sh \
-    && grep -q '^fish modprobe vfat' ./opencore-image-ng.sh \
-    && chmod +x ./opencore-image-ng.sh
-
 ENV USER=arch
 
 # libguestfs verbose
 ENV LIBGUESTFS_DEBUG=1
 ENV LIBGUESTFS_TRACE=1
 
-# entrypoint.sh, Launch.sh, enable-ssh.sh and opencore-config.py
+# entrypoint.sh, Launch.sh, enable-ssh.sh, opencore-config.py and the serial
+# generator in serial/
 COPY --chown=arch:arch --chmod=755 rootfs/home/arch/OSX-KVM/ /home/arch/OSX-KVM/
 
 # OSX-KVM only ships OpenCore.qcow2, so build the NOPICKER=true bootdisk from the
@@ -148,7 +136,7 @@ COPY --chown=arch:arch --chmod=755 rootfs/home/arch/OSX-KVM/ /home/arch/OSX-KVM/
 RUN cp -a ./OpenCore/EFI . \
     && echo 'fs0:\EFI\BOOT\BOOTx64.efi' > startup.nsh \
     && NOPICKER=true ./opencore-config.py > ./nopicker.config.plist \
-    && ./opencore-image-ng.sh \
+    && ./serial/opencore-image-ng.sh \
         --cfg ./nopicker.config.plist \
         --img ./OpenCore/OpenCore-nopicker.qcow2 \
     && rm -rf ./EFI ./startup.nsh ./nopicker.config.plist /var/tmp/.guestfs-*

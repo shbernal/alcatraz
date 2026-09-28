@@ -22,7 +22,7 @@ else
 fi
 
 if [[ "${GENERATE_UNIQUE}" == true ]]; then
-    ./Docker-OSX/osx-serial-generator/generate-unique-machine-values.sh \
+    ./serial/generate-unique-machine-values.sh \
         --count 1 \
         --tsv ./serial.tsv \
         --width "${WIDTH:-1920}" \
@@ -40,7 +40,7 @@ if [[ "${GENERATE_UNIQUE}" == true || "${GENERATE_SPECIFIC}" == true ]]; then
     else
         ./opencore-config.py > ./serial.config.plist
     fi
-    ./Docker-OSX/osx-serial-generator/generate-specific-bootdisk.sh \
+    ./serial/generate-specific-bootdisk.sh \
         --master-plist ./serial.config.plist \
         --model "${DEVICE_MODEL:-}" \
         --serial "${SERIAL:-}" \
