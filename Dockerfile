@@ -118,7 +118,7 @@ WORKDIR /home/arch/OSX-KVM
 RUN touch enable-ssh.sh \
     && chmod +x ./enable-ssh.sh \
     && tee -a enable-ssh.sh <<< '[[ -f /etc/ssh/ssh_host_rsa_key ]] || \' \
-    && tee -a enable-ssh.sh <<< '[[ -f /etc/ssh/ssh_host_ed25519_key ]] || \' \
+    && tee -a enable-ssh.sh <<< '[[ -f /etc/ssh/ssh_host_ecdsa_key ]] || \' \
     && tee -a enable-ssh.sh <<< '[[ -f /etc/ssh/ssh_host_ed25519_key ]] || \' \
     && tee -a enable-ssh.sh <<< 'sudo /usr/bin/ssh-keygen -A' \
     && tee -a enable-ssh.sh <<< 'nohup sudo /usr/bin/sshd -D &'
@@ -169,7 +169,6 @@ RUN touch Launch.sh \
     && tee -a Launch.sh <<< 'sudo chown -R $(id -u):$(id -g) /dev/snd 2>/dev/null || true' \
     && tee -a Launch.sh <<< '[[ "${RAM}" = max ]] && export RAM="$(("$(head -n1 /proc/meminfo | tr -dc "[:digit:]") / 1000000"))"' \
     && tee -a Launch.sh <<< '[[ "${RAM}" = half ]] && export RAM="$(("$(head -n1 /proc/meminfo | tr -dc "[:digit:]") / 2000000"))"' \
-    && tee -a Launch.sh <<< 'sudo chown -R $(id -u):$(id -g) /dev/snd 2>/dev/null || true' \
     && tee -a Launch.sh <<< 'exec qemu-system-x86_64 -m ${RAM:-4}000 \' \
     && tee -a Launch.sh <<< '-cpu ${CPU:-Skylake-Client,-hle,-rtm},${CPUID_FLAGS:-kvm=on,vendor=GenuineIntel,+invtsc,vmware-cpuid-freq=on,+ssse3,+sse4.2,+popcnt,+avx,+aes,+xsave,+xsaveopt,check,}${BOOT_ARGS} \' \
     && tee -a Launch.sh <<< '-machine q35,${KVM-"accel=kvm:tcg"} \' \
