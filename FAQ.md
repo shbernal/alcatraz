@@ -1,6 +1,4 @@
-# Frequently Asked Questions
-
-These questions come up regularly, so here are the answers.
+# Frequently asked questions
 
 ## Basics
 
@@ -10,159 +8,273 @@ The [macOS software license](https://www.apple.com/legal/sla/) allows running (s
 
 Therefore, yes, there is a legal use for alcatraz. If your use doesn't fall under the license or the security bounty terms, then you are/will be violating the macOS software license. **Note that this is not provided as legal advice, and you should consult with your own counsel for legal guidance.**
 
-You may also be interested in this [deeper dive into the subject](https://sick.codes/is-hackintosh-osx-kvm-or-docker-osx-legal/).
+Sick.Codes wrote a [deeper dive into the subject](https://sick.codes/is-hackintosh-osx-kvm-or-docker-osx-legal/) for Docker-OSX, and it applies here too.
 
 ### What does alcatraz do?
 
-alcatraz is an approach to setting up and launching a macOS virtual machine (VM) under [docker](https://en.wikipedia.org/wiki/Docker_(software)). The [Dockerfile](Dockerfile) is essentially a docker image building script that:
-1. validates a few things about the environment
-2. installs VM software (qemu) and creates a virtual disk within the docker container
-3. generates a serial number and firmware to make the VM look (enough) like Mac hardware
-4. downloads a macOS installer disk image
-5. generates a shell script to start the VM
+It runs a macOS virtual machine under [Docker](https://en.wikipedia.org/wiki/Docker_(software)). The [Dockerfile](Dockerfile) builds an Arch Linux image with QEMU, OVMF firmware, a pinned copy of [OSX-KVM](https://github.com/kholia/OSX-KVM) and a second OpenCore bootdisk with the picker turned off. When a container starts, [entrypoint.sh](rootfs/home/arch/OSX-KVM/entrypoint.sh):
 
-The default configuration is intended to create an ephemeral but repeatably bootable macOS that can be probed for security research.
+1. downloads the macOS recovery image and creates an empty disk, if they're missing
+2. builds a bootdisk with new or given serial numbers, if asked to
+3. starts QEMU through [Launch.sh](rootfs/home/arch/OSX-KVM/Launch.sh)
 
-### Why docker?
+### Why Docker?
 
-Docker provides a straightforward way to package a flexible turnkey solution to setting up a macOS VM. It is not the only way to do so, nor is it necessarily the best approach to setting up a long-lived, persistent macOS VM. You may prefer to study the [Dockerfile](Dockerfile) and/or [OSX-KVM](https://github.com/kholia/OSX-KVM) to prepare a VM to run under [proxmox](https://en.wikipedia.org/wiki/Proxmox_Virtual_Environment) or [libvirt](https://en.wikipedia.org/wiki/Libvirt).
+Docker packages the whole setup into one command. It isn't the only way to run a macOS VM, and for a long-lived one it may not be the best. You may prefer to study the [Dockerfile](Dockerfile) and [OSX-KVM](https://github.com/kholia/OSX-KVM) and set up a VM under [Proxmox](https://en.wikipedia.org/wiki/Proxmox_Virtual_Environment) or [libvirt](https://en.wikipedia.org/wiki/Libvirt).
 
 ## Can I...
 
 ### ...run BlueBubbles/AirMessage/Beeper on it?
 
-Yes. Make sure you [make serial numbers persist across reboots](README.md#making-serial-numbers-persist-across-reboots) after generating a unique serial number for yourself; don't use the default serial number. There is, of course, no guarantee that Apple won't block/disable your account, or inflict other consequences. See also the [legal considerations](#is-this-legal).
+Yes. Generate your own [serial numbers](README.md#serial-numbers) and keep them across containers; don't use the default ones. Apple may still block or disable your account. See also the [legal considerations](#is-this-legal).
 
 ### ...develop iPhone apps on it?
 
-Yes. You will probably find Xcode's UI frustratingly slow, but yes. Compiling apps (e.g. React Native) from the command line is likely to be less frustrating. There is, of course, no guarantee that Apple won't block/disable your account, remove you from the Apple Developer program, or inflict other consequences. See also the [legal considerations](#is-this-legal).
+Yes. Xcode's UI will be slow. Building from the command line (for example React Native) is less painful. Apple may still block your account or remove you from the Apple Developer Program. See also the [legal considerations](#is-this-legal).
 
 ### ...connect my iPhone or other USB device to it?
 
-Yes, at least if your host OS is Linux. See [instructions](README.md#vfio-iphone-usb-passthrough-vfio). It may or may not be possible if your host OS is Windows.
+Yes, on a Linux host. See [USB devices](#usb-devices). On Windows it may or may not work.
 
 ### ...run CI/CD processes with it?
 
 Maybe, but there are several reasons not to:
 1. There are [legal considerations](#is-this-legal).
-2. Nested virtualization is generally unavailable on cloud-hosted CI/CD and therefore alcatraz doesn't run.
-3. You are almost always better off using your own macOS runners (on virtual or actual Mac hardware) rather than trying to make the square peg of alcatraz fit the round hole of macOS-specific CI/CD.
+2. Hosted CI runners rarely offer nested virtualization, so there's no KVM for alcatraz to use.
+3. Your own macOS runners, on real or virtual Mac hardware, are almost always the better fit for macOS CI.
 
-You absolutely can install runners on the macOS VM itself (which does not get around the legal considerations mentioned above), but [alcatraz may not be the best approach](#why-docker).
+You can install runners on the macOS VM itself (which does not get around the legal considerations above), but [Docker may not be the best approach](#why-docker).
 
 ### ...run on Linux but with Wayland?
 
-Yes, but your Wayland server must support X11 connections (or you can [use VNC instead](README.md#building-a-headless-container-that-allows-insecure-vnc-on-localhost-for-local-use-only)).
+Yes, through Xwayland, which most compositors run for X11 clients. The usual `-v /tmp/.X11-unix:/tmp/.X11-unix -e "DISPLAY=${DISPLAY:-:0.0}"` flags work. You can also skip the window and [use VNC](#headless-and-vnc).
 
 ### ...run on Windows?
 
-Yes, as long as you have a new enough version of Windows 11 and have WSL2 set up. See [this section of the README](README.md#id-like-to-run-docker-osx-on-windows) for details. No, it will not work under Windows 10. Not even if you have WSL2 set up.
+Yes, on Windows 11 (build 22000 or later) with WSL2. Windows 10 doesn't work, even with WSL2.
+
+1. Install WSL from an administrator PowerShell with `wsl --install`. Check that it's version 2 with `wsl -l -v`.
+2. Turn on nested virtualization in `C:\Users\<you>\.wslconfig`:
+   ```
+   [wsl2]
+   nestedVirtualization=true
+   ```
+3. In the WSL distribution, check for KVM with `kvm-ok` (from the `cpu-checker` package). It should print `KVM acceleration can be used`.
+4. Install [Docker Desktop](https://docs.docker.com/desktop/windows/install/), and in its settings turn on "Use the WSL 2 based engine" and the integration with your WSL distribution.
+5. For the QEMU window, point the container at WSLg's X server by replacing the X11 mount with `-v /mnt/wslg/.X11-unix:/tmp/.X11-unix`. If the window doesn't show, try `-e DISPLAY=:0`. WSLg may not pass every key through ([microsoft/wslg#376](https://github.com/microsoft/wslg/issues/376)). [VNC](#headless-and-vnc) is the fallback.
 
 ### ...run on macOS?
 
 If you have a Mac with Apple Silicon you are better served by [UTM](https://apps.apple.com/us/app/utm-virtual-machines/id1538878817?mt=12).
 
-If you have an Intel Mac you can install and run docker (either [Docker Desktop](https://www.docker.com/products/docker-desktop/) or [colima](https://github.com/abiosoft/colima)). In either case, docker will be running under a Linux VM, which complicates things. You are likely to encounter one or more of the [common errors](#common-errors) below. Consider using qemu directly with HVF acceleration (e.g. with [libvirt](https://libvirt.org/macos.html)) instead.
+On an Intel Mac, Docker ([Docker Desktop](https://www.docker.com/products/docker-desktop/) or [colima](https://github.com/abiosoft/colima)) runs inside a Linux VM, which complicates things, and you are likely to hit the [common errors](#common-errors) below. Run QEMU directly with HVF acceleration instead, for example with [libvirt](https://libvirt.org/macos.html).
 
 ### ...run on cloud services?
 
-Cloud providers typically run their various services within virtual machines running on top of their actual hardware. These VMs typically are not set up to provide nested virtualization, which means KVM is unavailable so alcatraz will not work. This is _especially and specifically_ the case on CI/CD runners such as GitHub Actions, Azure DevOps Pipelines, CircleCI, GitLab CI/CD, etc. (however, see [running CI/CD](#run-cicd-processes-with-it)). Some cloud providers offer services that do allow virtualization, such as [Amazon's EC2 Bare Metal Instances](https://aws.amazon.com/about-aws/whats-new/2018/05/announcing-general-availability-of-amazon-ec2-bare-metal-instances/), but often at a significant premium.
+Probably not. Cloud providers run their services inside virtual machines, and those rarely allow nested virtualization, so there's no KVM. CI runners such as GitHub Actions, Azure DevOps Pipelines, CircleCI and GitLab CI/CD are the typical case (but see [running CI/CD](#run-cicd-processes-with-it)). Some providers sell machines that allow virtualization, such as [Amazon's EC2 bare metal instances](https://aws.amazon.com/about-aws/whats-new/2018/05/announcing-general-availability-of-amazon-ec2-bare-metal-instances/), usually at a premium.
 
-In short, probably not.
+## Common errors
 
-## Common Errors
+### Docker errors
 
-### Docker Errors
+If you get an error like `docker: command not found` then you don't have Docker installed. Use [Docker Desktop](https://www.docker.com/products/docker-desktop/) on Windows or your distribution's package manager on Linux.
 
-If you get an error like `docker: command not found` then you don't have docker installed and none of this works. Try [Docker Desktop](https://www.docker.com/products/docker-desktop/) on Windows or your distribution's normal package manager on Linux.
+If you get `docker: Got permission denied while trying to connect to the Docker daemon` or `docker: unknown server OS: .`, your user most likely isn't in the `docker` group. Add it with `sudo usermod -aG docker "$USER"`, then log out and back in.
 
-If you get an error like `docker: Got permission denied while trying to connect to the Docker daemon` or `docker: unknown server OS: .` the mostly likely explanation is that your user isn't in the `docker` Unix group. You'll need to add yourself to the `docker` group, log out, and log back in.
+If you get `Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?`, then `dockerd` isn't running. On most Linux distributions `sudo systemctl enable --now docker` starts it.
 
-If you get an error like `Cannot connect to the Docker daemon at unix://var/run/docker.sock. Is the docker daemon running?` then `dockerd` isn't running. On most Linux distributions you should be able to start it with `sudo systemctl enable docker --now`.
+### GTK initialization failed
 
-### GTK Initialization Failed
+QEMU can't open its window on your X server: either it can't reach it at all, or it isn't allowed to. Check that `DISPLAY` is set on the host (`echo $DISPLAY`) and that the command has both `-v /tmp/.X11-unix:/tmp/.X11-unix` and `-e "DISPLAY=${DISPLAY:-:0.0}"`. If it's a permission problem, `xhost +local:` on the host lets local containers connect. The package is `xorg-xhost` on Arch, `x11-xserver-utils` on Debian and Ubuntu, `xorg-x11-server-utils` on Fedora.
 
-This is an X11 error and means that the arguments to qemu are telling it to connect to an X11 display that it either can't connect to at all or doesn't have permission to connect to. In the latter case, this can usually be fixed by running `xhost +` on the host running the X11 server.
+Or skip the window and [use VNC](#headless-and-vnc).
 
-In many cases, however, it is preferable to tell qemu to listen for a VNC connection instead of trying to connect to X11; see [this section of the README](README.md#building-a-headless-container-that-allows-insecure-vnc-on-localhost-for-local-use-only) for instructions.
+### KVM error
 
-### KVM Error
+If you get an error like `error gathering device information while adding custom device "/dev/kvm": no such file or directory`, KVM isn't available on the Linux kernel Docker runs on. You may be somewhere without nested virtualization (see [cloud services](#run-on-cloud-services)), virtualization may be off in the BIOS, the CPU may be too old, or the `kvm_intel`/`kvm_amd` module isn't loaded. `grep -cE '(svm|vmx)' /proc/cpuinfo` prints 0 when the CPU doesn't expose virtualization. Fixing KVM is beyond this document, but you can [start here](https://www.linux-kvm.org/page/FAQ).
 
-If you get an error like `error gathering device information while adding custom device "/dev/kvm": no such file or directory` that means KVM is not available/working on the Linux kernel on which you are running docker. This could be because you are attempting to run somewhere that doesn't support nested virtualization (see [above](#can-i-run-this-on)), or because your BIOS does not have virtualization extensions turned on, or because your CPU is too old to support virtualization extensions, or your Linux kernel does not have KVM support loaded/enabled. Fixing KVM issues is well beyond the scope of this document, but you can [start here](https://www.linux-kvm.org/page/FAQ).
+### ALSA error
 
-### ALSA Error
+You may see a wall of errors like this:
 
-You might get an error like this:
 ```
 (qemu) ALSA lib confmisc.c:767:(parse_card) cannot find card '0'
 ALSA lib conf.c:4745:(_snd_config_evaluate) function snd_func_card_driver returned error: No such file or directory
-ALSA lib confmisc.c:392:(snd_func_concat) error evaluating strings
-ALSA lib conf.c:4745:(_snd_config_evaluate) function snd_func_concat returned error: No such file or directory
-ALSA lib confmisc.c:1246:(snd_func_refer) error evaluating name
-ALSA lib conf.c:4745:(_snd_config_evaluate) function snd_func_refer returned error: No such file or directory
-ALSA lib conf.c:5233:(snd_config_expand) Evaluate error: No such file or directory
-ALSA lib pcm.c:2660:(snd_pcm_open_noupdate) Unknown PCM default
+...
 alsa: Could not initialize DAC
-alsa: Failed to open `default':
-alsa: Reason: No such file or directory
-ALSA lib confmisc.c:767:(parse_card) cannot find card '0'
-ALSA lib conf.c:4745:(_snd_config_evaluate) function snd_func_card_driver returned error: No such file or directory
-ALSA lib confmisc.c:392:(snd_func_concat) error evaluating strings
-ALSA lib conf.c:4745:(_snd_config_evaluate) function snd_func_concat returned error: No such file or directory
-ALSA lib confmisc.c:1246:(snd_func_refer) error evaluating name
-ALSA lib conf.c:4745:(_snd_config_evaluate) function snd_func_refer returned error: No such file or directory
-ALSA lib conf.c:5233:(snd_config_expand) Evaluate error: No such file or directory
-ALSA lib pcm.c:2660:(snd_pcm_open_noupdate) Unknown PCM default
-alsa: Could not initialize DAC
-alsa: Failed to open `default':
-alsa: Reason: No such file or directory
 audio: Failed to create voice `dac'
-ALSA lib confmisc.c:767:(parse_card) cannot find card '0'
-ALSA lib conf.c:4745:(_snd_config_evaluate) function snd_func_card_driver returned error: No such file or directory
-ALSA lib confmisc.c:392:(snd_func_concat) error evaluating strings
-ALSA lib conf.c:4745:(_snd_config_evaluate) function snd_func_concat returned error: No such file or directory
-ALSA lib confmisc.c:1246:(snd_func_refer) error evaluating name
-ALSA lib conf.c:4745:(_snd_config_evaluate) function snd_func_refer returned error: No such file or directory
-ALSA lib conf.c:5233:(snd_config_expand) Evaluate error: No such file or directory
-ALSA lib pcm.c:2660:(snd_pcm_open_noupdate) Unknown PCM default
-alsa: Could not initialize ADC
-alsa: Failed to open `default':
-alsa: Reason: No such file or directory
-ALSA lib confmisc.c:767:(parse_card) cannot find card '0'
-ALSA lib conf.c:4745:(_snd_config_evaluate) function snd_func_card_driver returned error: No such file or directory
-ALSA lib confmisc.c:392:(snd_func_concat) error evaluating strings
-ALSA lib conf.c:4745:(_snd_config_evaluate) function snd_func_concat returned error: No such file or directory
-ALSA lib confmisc.c:1246:(snd_func_refer) error evaluating name
-ALSA lib conf.c:4745:(_snd_config_evaluate) function snd_func_refer returned error: No such file or directory
-ALSA lib conf.c:5233:(snd_config_expand) Evaluate error: No such file or directory
-ALSA lib pcm.c:2660:(snd_pcm_open_noupdate) Unknown PCM default
-alsa: Could not initialize ADC
-alsa: Failed to open `default':
-alsa: Reason: No such file or directory
-audio: Failed to create voice `adc'
 ```
 
-alcatraz defaults to telling qemu to use ALSA for audio output. Your host system may be using PulseAudio instead (see [PulseAudio](README.md#pulseaudio)), but you may not need audio output at all. You can pass `-e AUDIO_DRIVER="id=none,driver=none"` to disable audio output.
+QEMU uses ALSA for audio by default and found no sound card. If macOS boots, you can ignore them. Pass `--device /dev/snd` for sound through ALSA, [use PulseAudio](#audio-with-pulseaudio), or turn audio off with `-e AUDIO_DRIVER=none`.
 
-### No Disk to Install On
+### Cannot allocate memory
 
-If you have launched the installer but don't see a disk to install macOS on, it probably means you skipped the step where you run Disk Utility to format the virtual disk. See the [README](README.md#additional-boot-instructions-for-when-you-are-creating-your-container).
+`cannot set up guest memory 'pc.ram': Cannot allocate memory` means `RAM` asks for more than the host can give. Lower it. If `free -h` shows most memory in `buff/cache`, `sudo tee /proc/sys/vm/drop_caches <<< 3` frees it.
 
-### Slow Installation
+### No disk to install on
 
-This is not unique to virtual hardware. The macOS installation process gives apparently random and dependably incorrect time estimates, and can often appear to have completely frozen. Just be patient. It could take hours, maybe even more than a day.
+The installer lists no disk until you erase it in Disk Utility. See [Installing](README.md#installing).
 
-### Installer After Completing Install
+### Slow installation
 
-If you wind up in the installer again after you've installed macOS it means you booted from the installer disk instead of the disk you installed macOS on. Reboot and make sure you choose the correct disk to boot.
+This isn't specific to virtual hardware. The macOS installer's time estimates are random, and it often looks frozen when it isn't. Be patient. It can take hours.
 
-## Next Steps
+### Installer after completing install
 
-Congratulations, you got a macOS VM up and running! Now what?
+You booted from the installer instead of the disk you installed macOS on. Reboot and pick the right disk, or [skip the picker](README.md#skipping-the-picker).
 
-# Fixing Apple ID Login Issues in macOS Virtual Machines
+## Running it
 
-## Problem Overview
+### Headless and VNC
+
+Drop the X11 flags and have QEMU serve VNC instead:
+
+```bash
+docker run -i \
+    --device /dev/kvm \
+    -p 50922:10022 \
+    -p 5999:5999 \
+    -e EXTRA="-display none -vnc 0.0.0.0:99,password=on" \
+    ghcr.io/shbernal/alcatraz:latest
+```
+
+Use `-i`, not `-it`, so you can type into the QEMU monitor. Press Enter until you see `(qemu)`, type `change vnc password`, and set a password. Then connect a VNC client to `localhost:5999`. To stop the container, `docker kill` it.
+
+VNC isn't encrypted. On a remote host, don't publish port 5999; tunnel it instead with `ssh -N <user>@<host> -L 5999:127.0.0.1:5999`.
+
+[SPICE](https://www.spice-space.org/spice-user-manual.html) works the same way: `-p 3001:3001 -e EXTRA="-display none -spice disable-ticketing=on,port=3001"`, then `remote-viewer spice://localhost:3001`. `disable-ticketing` means no password, so keep the port local.
+
+### Audio with PulseAudio
+
+On a host running PulseAudio or PipeWire's PulseAudio server, mount its socket and point QEMU at it:
+
+```bash
+    -e AUDIO_DRIVER=pa,server=unix:/tmp/pulseaudio.socket \
+    -v "/run/user/$(id -u)/pulse/native:/tmp/pulseaudio.socket" \
+```
+
+Under WSLg, the socket is `/mnt/wslg/runtime-dir/pulse/native`. macOS has no driver for QEMU's HDA codec, so expect the controller to show up without working output.
+
+### USB devices
+
+QEMU runs as the container's `arch` user. The simplest route that needs no extra privileges is USB redirection over the network. On the host, find the device's `vendor:product` ID with `lsusb` and serve it (from the `usbredir` package):
+
+```bash
+sudo usbredirserver -p 7700 1e3d:2096
+```
+
+Then attach it when the container starts:
+
+```bash
+    -e EXTRA="-chardev socket,id=usbredirchardev1,port=7700,host=172.17.0.1 -device usb-redir,chardev=usbredirchardev1,id=usbredirdev1" \
+```
+
+or at any time from the QEMU monitor (press Enter in the container's terminal for the `(qemu)` prompt):
+
+```
+chardev-add socket,id=usbredirchardev1,port=7700,host=172.17.0.1
+device_add usb-redir,chardev=usbredirchardev1,id=usbredirdev1
+```
+
+`172.17.0.1` is the host on Docker's default bridge. `ip addr show docker0` confirms it.
+
+Direct passthrough with `-device usb-host,hostbus=1,hostport=2` (numbers from `lsusb -t`) also works, but the container needs the device node (`--device /dev/bus/usb/001/005`) and QEMU needs write access to it. The host loses the device while the VM runs. `system_profiler SPUSBDataType` in macOS lists what arrived.
+
+For an iPhone, [usbfluxd](https://github.com/corellium/usbfluxd) shares the host's `usbmuxd` over the network, which works on any machine. On the host, with `usbmuxd`, `avahi`, `socat` and `usbfluxd` installed and the phone plugged in:
+
+```bash
+sudo systemctl start usbmuxd
+sudo avahi-daemon &
+sudo socat tcp-listen:5000,fork unix-connect:/var/run/usbmuxd &
+sudo usbfluxd -f -n
+```
+
+In macOS, build usbfluxd with Homebrew's tools and connect to the host:
+
+```bash
+brew install make automake autoconf libtool pkg-config gcc libimobiledevice usbmuxd
+git clone https://github.com/corellium/usbfluxd.git && cd usbfluxd
+./autogen.sh && make && sudo make install
+
+sudo launchctl start usbmuxd
+sudo /usr/local/sbin/usbfluxd -f -r 172.17.0.1:5000
+```
+
+Reopen Xcode and the phone shows up. On a desktop with a spare USB controller, VFIO passthrough is the other option: see [Silfalion/Iphone_docker_osx_passthrough](https://github.com/Silfalion/Iphone_docker_osx_passthrough).
+
+### Shared folders
+
+`sshfs` over the guest's SSH port needs nothing in the container. With Remote Login on in macOS:
+
+```bash
+mkdir -p ~/mnt/osx
+sshfs <macos-user>@localhost: -p 50922 ~/mnt/osx
+```
+
+To share a host folder into macOS, mount it into the container and hand it to QEMU as a 9p share:
+
+```bash
+    -v "${HOME}/somefolder:/mnt/hostshare" \
+    -e EXTRA="-virtfs local,path=/mnt/hostshare,mount_tag=hostshare,security_model=passthrough,id=hostshare" \
+```
+
+Then, in macOS, `sudo -S mount_9p hostshare`.
+
+### Extra disks
+
+Mount the disk image into the container and attach it to a free SATA port:
+
+```bash
+    -v "${PWD}/second.img:/disktwo" \
+    -e EXTRA="-device ide-hd,bus=sata.5,drive=DISK-TWO -drive id=DISK-TWO,if=none,file=/disktwo,format=qcow2" \
+```
+
+### Extract the virtual disk
+
+With the container stopped, copy the disk out:
+
+```bash
+docker cp <container-id>:/home/arch/OSX-KVM/mac_hdd_ng.img .
+```
+
+Then run it with the disk mounted, as in [Keep your disk](README.md#keep-your-disk).
+
+To read it on Linux, connect it as a block device and mount the APFS partition with [apfs-fuse](https://github.com/sgan81/apfs-fuse), read-only:
+
+```bash
+sudo modprobe nbd max_part=8
+sudo qemu-nbd --connect=/dev/nbd0 ./mac_hdd_ng.img
+sudo fdisk -l /dev/nbd0
+mkdir -p ./part
+sudo apfs-fuse -o allow_other /dev/nbd0p2 ./part
+
+# when done
+sudo umount ./part
+sudo qemu-nbd --disconnect /dev/nbd0
+```
+
+### Shrink a disk image
+
+1. In macOS, delete what you don't need, run `sudo trimforce enable` and reboot.
+2. Zero the free space with `dd if=/dev/zero of=./empty; rm -f ./empty`, then shut down.
+3. [Extract the disk](#extract-the-virtual-disk) and rewrite it: `qemu-img convert -O qcow2 mac_hdd_ng.img smaller.img`. Add `-c` to compress it further, at some cost in speed.
+4. `qemu-img check smaller.img` before you rely on it.
+
+### Disk space
+
+Every container keeps its disk under `/var/lib/docker`. If that fills up, [keep your disk on the host](README.md#keep-your-disk) somewhere with room, or move Docker's data directory with the `data-root` setting in `/etc/docker/daemon.json`.
+
+### RAM and CPUs
+
+`RAM`, `SMP` and `CORES` are environment variables, so they apply every time a container starts. `-e RAM=half` gives the guest half of the host's memory. For another CPU topology, set the whole `-smp` value with `CPU_STRING`, for example `-e CPU_STRING=8,sockets=4,cores=2`. Unlike memory, CPU time is shared, so you can give the guest all your cores.
+
+### Slow UI
+
+macOS expects a GPU, and QEMU's virtual display has no acceleration. [osx-optimizer](https://github.com/sickcodes/osx-optimizer) lists macOS settings that help, such as turning off Spotlight indexing and transparency.
+
+## Fixing Apple ID login
+
+### The problem
 
 When running macOS in a virtual machine, you may encounter problems logging into Apple services including:
 - Apple ID
@@ -174,20 +286,22 @@ This happens because Apple's services can detect that macOS is running in a virt
 
 NOTE as per forum post: Unfortunately, this would very possibly break qemu-guest-agent, which is necessary for the host getting VM status or taking hot snapshot while the VM is running. This is because qemu-guest-agent also checks the hv_vmm_present flag, but only works if it is true (=1).
 
-Use at your own risk. Hope it would help.
+Use at your own risk.
 
-## Solution: Kernel Patching
+### The fix: a kernel patch
 
 This guide provides three methods to apply the necessary kernel patch. All methods implement the same fix originally described in [this forum post](https://forum.proxmox.com/threads/anyone-can-make-bluetooth-work-on-sonoma.153301/#post-697832).
 
-### Prerequisites
+#### Before you start
 
-Before proceeding with any method:
+alcatraz attaches the OpenCore bootdisk with `snapshot=on`, so changes made to it from inside macOS are gone after the next shutdown. Patch a copy of the `config.plist` on the host instead, and have the container build a bootdisk from it: mount it with `-v "${PWD}/config.plist:/config.plist"` and pass `-e MASTER_PLIST_URL=file:///config.plist` with `GENERATE_UNIQUE` or `GENERATE_SPECIFIC`. The serial numbers only go in where the file has `{{SERIAL}}`-style placeholders, see [Serial numbers](README.md#serial-numbers).
+
+Whichever method you use:
 - Make sure you can access your EFI partition
 - Locate your OpenCore `config.plist` file (typically in the `EFI/OC` folder)
 - Back up your current `config.plist` before making changes
 
-## Method 1: Using the Utility Script (Simplest Approach)
+### Method 1: the patch script
 
 This is the fastest and easiest way to apply the patch.
 
@@ -201,14 +315,14 @@ This is the fastest and easiest way to apply the patch.
    python3 apply_appleid_kernelpatch.py /path/to/config.plist
    ```
 
-**Pro Tip**: You can drag and drop the `config.plist` file into your terminal after typing `python3 apply_appleid_kernelpatch.py` for an easy path insertion.
+You can drag and drop the `config.plist` file into your terminal after typing `python3 apply_appleid_kernelpatch.py` for an easy path insertion.
 
 **Note**: If you encounter a "permission denied" error, run the command with `sudo`:
 ```bash
 sudo python3 apply_appleid_kernelpatch.py /path/to/config.plist
 ```
 
-## Method 2: Using OCAT (OpenCore Auxiliary Tools) GUI
+### Method 2: OCAT (OpenCore Auxiliary Tools)
 
 If you prefer a graphical approach:
 
@@ -217,7 +331,7 @@ If you prefer a graphical approach:
 3. Go to the **Patch** subsection
 4. Add two new patch entries with the following details:
 
-### Patch 1
+#### Patch 1
 | Setting | Value |
 |---------|-------|
 | **Identifier** | `kernel` |
@@ -234,7 +348,7 @@ If you prefer a graphical approach:
 | **Enabled** | `True` |
 | **Comment** | `Sonoma VM BT Enabler - PART 1 of 2 - Patch kern.hv_vmm_present=0` |
 
-### Patch 2
+#### Patch 2
 | Setting | Value |
 |---------|-------|
 | **Identifier** | `kernel` |
@@ -254,7 +368,7 @@ If you prefer a graphical approach:
 5. Save the configuration
 6. Reboot your VM
 
-## Method 3: Direct `config.plist` Editing
+### Method 3: edit `config.plist` by hand
 
 For users who prefer to manually edit the configuration file:
 
@@ -329,29 +443,13 @@ For users who prefer to manually edit the configuration file:
 5. Save the file
 6. Reboot your VM
 
-## Important Notes
+### Notes
 
 - The `MinKernel` values (`20.4.0` and `22.0.0`) may need adjustment depending on your specific macOS version (Monterey, Ventura, Sonoma, etc.)
 - If you encounter issues, consult the [OpenCore documentation](https://dortania.github.io/docs/) for appropriate values for your setup
 - Always back up your configuration before making changes
 - After applying the patch and rebooting, try signing into Apple services again
 
-## What This Patch Does
+### What the patch does
 
-This patch tricks macOS into believing it's running on physical hardware by redirecting the `hv_vmm_present` kernel variable, which normally indicates VM presence. After applying the patch, Apple services should function normally within your virtual environment.
-### Slow UI
-
-The macOS UI expects and relies on GPU acceleration, and there is (currently) no way to provide GPU acceleration in the virtual hardware. See [osx-optimizer](https://github.com/sickcodes/osx-optimizer) for macOS configuration to speed things up.
-
-### Extract the Virtual Disk
-
-With the container stopped, `sudo find /var/lib/docker -size +10G -name mac_hdd_ng.img` to find the disk image then copy it where you want it.
-
-### Disk Space
-
-Is your host machine's disk, specifically `/var` (because of `/var/lib/docker`), getting full? [Fix it](README.md#increase-disk-space-by-moving-varlibdocker-to-external-drive-block-storage-nfs-or-any-other-location-conceivable).
-
-### Increase RAM or CPUs/cores
-
-The `RAM`, `SMP`, and `CORES` options are all docker environment variables, which means it uses whatever you provide any time you start a container.
-
+The patch makes macOS believe it runs on physical hardware by redirecting the `hv_vmm_present` kernel variable, which normally indicates VM presence. After applying the patch, Apple services should function normally within your virtual environment.
