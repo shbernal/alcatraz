@@ -49,6 +49,12 @@
 #       # you will also need to pass the device to the container
 
 FROM archlinux:base-devel
+
+# archlinux:base-devel is a rolling tag. Pass the digest it resolved to, so a
+# broken rebuild can be traced to its base.
+ARG BASE_DIGEST
+LABEL org.opencontainers.image.base.name=docker.io/library/archlinux:base-devel
+LABEL org.opencontainers.image.base.digest=${BASE_DIGEST}
 LABEL maintainer='https://twitter.com/sickcodes <https://sick.codes>'
 
 SHELL ["/bin/bash", "-c"]
