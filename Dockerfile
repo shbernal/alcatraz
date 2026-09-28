@@ -248,7 +248,8 @@ ENV CPUID_FLAGS='kvm=on,vendor=GenuineIntel,+invtsc,vmware-cpuid-freq=on,+ssse3,
 
 ENV DISPLAY=:0.0
 
-# Deprecated
+# Where GENERATE_UNIQUE writes the generated serials, and GENERATE_SPECIFIC reads them
+# from. Mount a file here to reuse the serials in the next container.
 ENV ENV=/env
 
 # Boolean for generating a bootdisk with new random serials.
