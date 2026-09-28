@@ -1,36 +1,23 @@
-#!/usr/bin/docker
-#     ____             __             ____  ______  __
-#    / __ \____  _____/ /_____  _____/ __ \/ ___/ |/ /
-#   / / / / __ \/ ___/ //_/ _ \/ ___/ / / /\__ \|   /
-#  / /_/ / /_/ / /__/ ,< /  __/ /  / /_/ /___/ /   |
-# /_____/\____/\___/_/|_|\___/_/   \____//____/_/|_|
+# alcatraz: macOS in a container
+# https://github.com/shbernal/alcatraz
+# Hard fork of Docker-OSX by Sick.Codes (https://github.com/sickcodes/Docker-OSX)
+# SPDX-License-Identifier: GPL-3.0-or-later
 #
-# Title:            Docker-OSX (Mac on Docker)
-# Author:           Sick.Codes https://twitter.com/sickcodes
-# Version:          6.0
-# License:          GPLv3+
-# Repository:       https://github.com/sickcodes/Docker-OSX
-# Website:          https://sick.codes
-#
-# All credits for OSX-KVM and the rest at @Kholia's repo: https://github.com/kholia/osx-kvm
-# OpenCore support go to https://github.com/Leoyzen/KVM-Opencore
-# and https://github.com/thenickdude/KVM-Opencore/
-#
-# This Dockerfile automates the installation of Docker-OSX
-# It will build a 200GB container. You can change the size using build arguments.
-# This Dockerfile builds on top of the work done by Dhiru Kholia, and many others.
+# Built on OSX-KVM by Dhiru Kholia (https://github.com/kholia/OSX-KVM), with
+# OpenCore support from https://github.com/Leoyzen/KVM-Opencore and
+# https://github.com/thenickdude/KVM-Opencore/
 #
 # Build:
 #
-#       docker build -t docker-osx .
+#       docker build -t alcatraz .
 #
 # Basic Run:
 #
-#       docker run --device /dev/kvm --device /dev/snd -v /tmp/.X11-unix:/tmp/.X11-unix -e "DISPLAY=${DISPLAY:-:0.0}" sickcodes/docker-osx:latest
+#       docker run --device /dev/kvm --device /dev/snd -v /tmp/.X11-unix:/tmp/.X11-unix -e "DISPLAY=${DISPLAY:-:0.0}" ghcr.io/shbernal/alcatraz:latest
 #
 # Run with SSH:
 #
-#       docker run --device /dev/kvm --device /dev/snd -e RAM=6 -p 50922:10022 -v /tmp/.X11-unix:/tmp/.X11-unix -e "DISPLAY=${DISPLAY:-:0.0}" sickcodes/docker-osx:latest
+#       docker run --device /dev/kvm --device /dev/snd -e RAM=6 -p 50922:10022 -v /tmp/.X11-unix:/tmp/.X11-unix -e "DISPLAY=${DISPLAY:-:0.0}" ghcr.io/shbernal/alcatraz:latest
 #       # ssh fullname@localhost -p 50922
 #
 # Optargs:
@@ -55,7 +42,15 @@ FROM archlinux:base-devel
 ARG BASE_DIGEST
 LABEL org.opencontainers.image.base.name=docker.io/library/archlinux:base-devel
 LABEL org.opencontainers.image.base.digest=${BASE_DIGEST}
-LABEL maintainer='https://twitter.com/sickcodes <https://sick.codes>'
+LABEL org.opencontainers.image.title=alcatraz
+LABEL org.opencontainers.image.description="macOS in a container: QEMU/KVM with OSX-KVM's OpenCore"
+LABEL org.opencontainers.image.source=https://github.com/shbernal/alcatraz
+LABEL org.opencontainers.image.licenses=GPL-3.0-or-later
+LABEL org.opencontainers.image.url=https://github.com/shbernal/alcatraz
+LABEL org.opencontainers.image.documentation=https://github.com/shbernal/alcatraz#readme
+LABEL org.opencontainers.image.authors=shbernal
+# Blank the labels inherited from archlinux:base-devel; the release build sets them.
+LABEL org.opencontainers.image.version="" org.opencontainers.image.revision="" org.opencontainers.image.created=""
 
 SHELL ["/bin/bash", "-c"]
 
@@ -123,8 +118,8 @@ RUN sudo pacman -Syu bc qemu-desktop edk2-ovmf wget --overwrite '*' --noconfirm 
 
 ARG LINUX=true
 
-# required to use libguestfs inside a docker container, to create bootdisks for docker-osx on-the-fly
-# reminder this is what makes :naked image larger than expected
+# libguestfs builds the bootdisks (nopicker at build time, serials at run time).
+# Its appliance needs a kernel, which is most of this layer's size.
 RUN if [[ "${LINUX}" == true ]]; then \
         sudo pacman -Syu linux linux-headers archlinux-keyring guestfs-tools mkinitcpio --noconfirm \
         && libguestfs-test-tool \

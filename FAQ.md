@@ -8,13 +8,13 @@ These questions come up regularly, so here are the answers.
 
 The [macOS software license](https://www.apple.com/legal/sla/) allows running (some versions of) macOS in a virtual machine only on Apple hardware. The [Apple Security Bounty terms and conditions](https://security.apple.com/terms-and-conditions/) make an exception to that (and essentially anything in the macOS software license) under some specific circumstances.
 
-Therefore, yes, there is a legal use for Docker-OSX. If your use doesn't fall under the license or the security bounty terms, then you are/will be violating the macOS software license. **Note that this is not provided as legal advice, and you should consult with your own counsel for legal guidance.**
+Therefore, yes, there is a legal use for alcatraz. If your use doesn't fall under the license or the security bounty terms, then you are/will be violating the macOS software license. **Note that this is not provided as legal advice, and you should consult with your own counsel for legal guidance.**
 
 You may also be interested in this [deeper dive into the subject](https://sick.codes/is-hackintosh-osx-kvm-or-docker-osx-legal/).
 
-### What does Docker-OSX do?
+### What does alcatraz do?
 
-Docker-OSX is an approach to setting up and launching a macOS virtual machine (VM) under [docker](https://en.wikipedia.org/wiki/Docker_(software)). The [Dockerfile](Dockerfile) is essentially a docker image building script that:
+alcatraz is an approach to setting up and launching a macOS virtual machine (VM) under [docker](https://en.wikipedia.org/wiki/Docker_(software)). The [Dockerfile](Dockerfile) is essentially a docker image building script that:
 1. validates a few things about the environment
 2. installs VM software (qemu) and creates a virtual disk within the docker container
 3. generates a serial number and firmware to make the VM look (enough) like Mac hardware
@@ -45,10 +45,10 @@ Yes, at least if your host OS is Linux. See [instructions](README.md#vfio-iphone
 
 Maybe, but there are several reasons not to:
 1. There are [legal considerations](#is-this-legal).
-2. Nested virtualization is generally unavailable on cloud-hosted CI/CD and therefore Docker-OSX doesn't run.
-3. You are almost always better off using your own macOS runners (on virtual or actual Mac hardware) rather than trying to make the square peg of Docker-OSX fit the round hole of macOS-specific CI/CD.
+2. Nested virtualization is generally unavailable on cloud-hosted CI/CD and therefore alcatraz doesn't run.
+3. You are almost always better off using your own macOS runners (on virtual or actual Mac hardware) rather than trying to make the square peg of alcatraz fit the round hole of macOS-specific CI/CD.
 
-You absolutely can install runners on the macOS VM itself (which does not get around the legal considerations mentioned above), but [Docker-OSX may not be the best approach](#why-docker).
+You absolutely can install runners on the macOS VM itself (which does not get around the legal considerations mentioned above), but [alcatraz may not be the best approach](#why-docker).
 
 ### ...run on Linux but with Wayland?
 
@@ -66,7 +66,7 @@ If you have an Intel Mac you can install and run docker (either [Docker Desktop]
 
 ### ...run on cloud services?
 
-Cloud providers typically run their various services within virtual machines running on top of their actual hardware. These VMs typically are not set up to provide nested virtualization, which means KVM is unavailable so Docker-OSX will not work. This is _especially and specifically_ the case on CI/CD runners such as GitHub Actions, Azure DevOps Pipelines, CircleCI, GitLab CI/CD, etc. (however, see [running CI/CD](#run-cicd-processes-with-it)). Some cloud providers offer services that do allow virtualization, such as [Amazon's EC2 Bare Metal Instances](https://aws.amazon.com/about-aws/whats-new/2018/05/announcing-general-availability-of-amazon-ec2-bare-metal-instances/), but often at a significant premium.
+Cloud providers typically run their various services within virtual machines running on top of their actual hardware. These VMs typically are not set up to provide nested virtualization, which means KVM is unavailable so alcatraz will not work. This is _especially and specifically_ the case on CI/CD runners such as GitHub Actions, Azure DevOps Pipelines, CircleCI, GitLab CI/CD, etc. (however, see [running CI/CD](#run-cicd-processes-with-it)). Some cloud providers offer services that do allow virtualization, such as [Amazon's EC2 Bare Metal Instances](https://aws.amazon.com/about-aws/whats-new/2018/05/announcing-general-availability-of-amazon-ec2-bare-metal-instances/), but often at a significant premium.
 
 In short, probably not.
 
@@ -142,7 +142,7 @@ alsa: Reason: No such file or directory
 audio: Failed to create voice `adc'
 ```
 
-Docker-OSX defaults to telling qemu to use ALSA for audio output. Your host system may be using PulseAudio instead (see [PulseAudio](README.md#pulseaudio)), but you may not need audio output at all. You can pass `-e AUDIO_DRIVER="id=none,driver=none"` to disable audio output.
+alcatraz defaults to telling qemu to use ALSA for audio output. Your host system may be using PulseAudio instead (see [PulseAudio](README.md#pulseaudio)), but you may not need audio output at all. You can pass `-e AUDIO_DRIVER="id=none,driver=none"` to disable audio output.
 
 ### No Disk to Install On
 
@@ -194,7 +194,7 @@ This is the fastest and easiest way to apply the patch.
 1. Mount your EFI partition using Clover Configurator or another EFI mounting tool
 2. Download the patch script:
    ```bash
-   curl -o apply_appleid_kernelpatch.py https://raw.githubusercontent.com/sickcodes/Docker-OSX/scripts/apply_appleid_kernelpatch.py
+   curl -o apply_appleid_kernelpatch.py https://raw.githubusercontent.com/shbernal/alcatraz/main/scripts/apply_appleid_kernelpatch.py
    ```
 3. Run the script with your `config.plist` file path:
    ```bash

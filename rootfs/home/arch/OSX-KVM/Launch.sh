@@ -1,4 +1,9 @@
 #!/bin/bash
+# alcatraz: macOS in a container
+# https://github.com/shbernal/alcatraz
+# Hard fork of Docker-OSX by Sick.Codes (https://github.com/sickcodes/Docker-OSX)
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
 # Starts the macOS VM. Every setting comes from the environment, with the
 # defaults set in the Dockerfile.
 set -euxo pipefail

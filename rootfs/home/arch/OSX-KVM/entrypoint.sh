@@ -1,4 +1,9 @@
 #!/bin/bash
+# alcatraz: macOS in a container
+# https://github.com/shbernal/alcatraz
+# Hard fork of Docker-OSX by Sick.Codes (https://github.com/sickcodes/Docker-OSX)
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
 # Container start: fetch the installer if missing, prepare the bootdisk, start
 # sshd, then hand over to Launch.sh.
 set -euo pipefail

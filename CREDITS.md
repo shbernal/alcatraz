@@ -2,6 +2,12 @@
 
 The most important part of the project. You.
 
+## Fork
+
+alcatraz is a hard fork of [sickcodes/Docker-OSX](https://github.com/sickcodes/Docker-OSX) by [Sick.Codes](https://sick.codes), taken in September 2026 and modified since; the git history records every change. The serial generator scripts in `rootfs/home/arch/OSX-KVM/serial/` come from [sickcodes/osx-serial-generator](https://github.com/sickcodes/osx-serial-generator). Both are GPL-3.0-or-later, and so is alcatraz.
+
+The acknowledgements and contributor list below are Docker-OSX's, kept as they were.
+
 ## Upstream Acknowledgements:
 
 This project uses OSX-KVM from https://github.com/kholia/OSX-KVM and fully appreciates the work done by [@Kholia](https://github.com/Kholia) and all the contributors who are listed: [https://github.com/kholia/OSX-KVM/blob/master/CREDITS.md](https://github.com/kholia/OSX-KVM/blob/master/CREDITS.md)

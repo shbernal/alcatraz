@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+# alcatraz: macOS in a container
+# https://github.com/shbernal/alcatraz
+# Hard fork of Docker-OSX by Sick.Codes (https://github.com/sickcodes/Docker-OSX)
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
 # Prints OSX-KVM's OpenCore config with the serials from the environment, if
 # set, and with the picker off if NOPICKER=true. Used for the nopicker bootdisk
 # and by GENERATE_UNIQUE and GENERATE_SPECIFIC unless MASTER_PLIST_URL is set.
