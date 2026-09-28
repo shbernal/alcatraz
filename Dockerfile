@@ -73,12 +73,6 @@ RUN pacman -Sy archlinux-keyring --noconfirm \
     && pacman-key --init \
     && pacman-key --populate archlinux
 
-# This fails on hub.docker.com, useful for debugging in cloud
-# RUN [[ $(egrep -c '(svm|vmx)' /proc/cpuinfo) -gt 0 ]] || { echo KVM not possible on this host && exit 1; }
-
-# RUN tee -a /etc/pacman.conf <<< '[community-testing]' \
-#     && tee -a /etc/pacman.conf <<< 'Include = /etc/pacman.d/mirrorlist'
-
 RUN pacman -Syu git zip vim nano alsa-utils openssh --noconfirm \
     && ln -s /bin/vim /bin/vi \
     && useradd arch -p arch \
@@ -129,8 +123,6 @@ RUN touch enable-ssh.sh \
 # add any additional commands in QEMU cli format -e EXTRA="-usb -device usb-host,hostbus=1,hostaddr=8"
 
 # default env vars, RUNTIME ONLY, not for editing in build time.
-
-# RUN yes | sudo pacman -Syu qemu libvirt dnsmasq virt-manager bridge-utils edk2-ovmf netctl libvirt-dbus --overwrite --noconfirm
 
 RUN sudo pacman -Syu bc qemu-desktop edk2-ovmf wget --overwrite '*' --noconfirm \
     && yes | sudo pacman -Scc
@@ -370,7 +362,3 @@ CMD ! [[ -e "${BASESYSTEM_IMAGE:-BaseSystem.img}" ]] \
             --output-bootdisk "${BOOTDISK:=/home/arch/OSX-KVM/OpenCore/OpenCore.qcow2}" \
     || exit 1 ; } \
     ; ./enable-ssh.sh && /bin/bash -c ./Launch.sh
-
-# virt-manager mode: eta son
-# CMD virsh define <(envsubst < Docker-OSX.xml) && virt-manager || virt-manager
-# CMD virsh define <(envsubst < macOS-libvirt-Catalina.xml) && virt-manager || virt-manager
