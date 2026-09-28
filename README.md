@@ -204,15 +204,7 @@ Disks installed with Docker-OSX's older defaults, a `Penryn` CPU and a `vmxnet3`
 
 ## Building
 
-```bash
-docker build -t alcatraz .
-```
-
-The build pins OSX-KVM to a commit with `ARG OSX_KVM_REF` in the [Dockerfile](Dockerfile). OSX-KVM supplies the firmware, the OpenCore bootdisk and its config, and the recovery download script, so a bump can break booting. After changing the commit, build, then boot an existing disk and a fresh install.
-
-`archlinux:base-devel` is not pinned. Pass its digest as `--build-arg BASE_DIGEST=sha256:…` to record it in the image's `org.opencontainers.image.base.digest` label.
-
-The scripts the container runs are in [rootfs/home/arch/OSX-KVM](rootfs/home/arch/OSX-KVM), at the path they take in the image. `serial/` holds the serial number scripts from [osx-serial-generator](https://github.com/sickcodes/osx-serial-generator) at 908b3d6.
+See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Troubleshooting
 
