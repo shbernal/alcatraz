@@ -73,12 +73,6 @@ RUN pacman -Sy archlinux-keyring --noconfirm \
     && pacman-key --init \
     && pacman-key --populate archlinux
 
-RUN tee -a /etc/pacman.d/gnupg/gpg.conf <<< 'keyserver hkp://keyserver.ubuntu.com' \
-    && tee -a /etc/pacman.d/gnupg/gpg.conf <<< 'keyserver hkps://hkps.pool.sks-keyservers.net:443' \
-    && tee -a /etc/pacman.d/gnupg/gpg.conf <<< 'keyserver hkp://pgp.mit.edu:11371' \
-    && tee -a /etc/pacman.d/gnupg/gpg.conf <<< 'keyserver hkps://keys.openpgp.org' \
-    && tee -a /etc/pacman.d/gnupg/gpg.conf <<< 'keyserver hkps://keys.mailvelope.com'
-
 # This fails on hub.docker.com, useful for debugging in cloud
 # RUN [[ $(egrep -c '(svm|vmx)' /proc/cpuinfo) -gt 0 ]] || { echo KVM not possible on this host && exit 1; }
 
