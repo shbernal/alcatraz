@@ -105,8 +105,6 @@ RUN git clone --recurse-submodules --depth 1 https://github.com/kholia/OSX-KVM.g
 
 # enable ssh
 # docker exec .... ./enable-ssh.sh
-USER arch
-
 WORKDIR /home/arch/OSX-KVM
 
 RUN touch enable-ssh.sh \
@@ -126,8 +124,6 @@ RUN touch enable-ssh.sh \
 
 RUN sudo pacman -Syu bc qemu-desktop edk2-ovmf wget --overwrite '*' --noconfirm \
     && yes | sudo pacman -Scc
-
-WORKDIR /home/arch/OSX-KVM
 
 ARG LINUX=true
 
@@ -219,8 +215,6 @@ RUN touch opencore-config.py \
     && tee -a opencore-config.py <<< 'out = plistlib.dumps(config, sort_keys=False)' \
     && tee -a opencore-config.py <<< 'out = re.sub(rb"<data>(.*?)</data>", lambda m: b"<data>" + b"".join(m[1].split()) + b"</data>", out, flags=re.S)' \
     && tee -a opencore-config.py <<< 'sys.stdout.buffer.write(out)'
-
-USER arch
 
 ENV USER=arch
 
