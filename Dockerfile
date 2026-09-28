@@ -94,8 +94,14 @@ RUN tee -a sshd_config <<< 'AllowTcpForwarding yes' \
 
 USER arch
 
-# download OSX-KVM for the submodules
-RUN git clone --recurse-submodules --depth 1 https://github.com/kholia/OSX-KVM.git /home/arch/OSX-KVM
+# OSX-KVM provides the firmware, the OpenCore bootdisk and its config, and the
+# macOS download script. Bump the commit on purpose and test a boot.
+ARG OSX_KVM_REF=4c378a4b5e0b219783683012bec680325eb40719
+RUN git init -q /home/arch/OSX-KVM \
+    && cd /home/arch/OSX-KVM \
+    && git fetch -q --depth 1 https://github.com/kholia/OSX-KVM.git "${OSX_KVM_REF}" \
+    && git checkout -q FETCH_HEAD \
+    && git submodule update -q --init --depth 1
 
 WORKDIR /home/arch/OSX-KVM
 
