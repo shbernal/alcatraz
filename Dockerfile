@@ -97,17 +97,7 @@ USER arch
 # download OSX-KVM for the submodules
 RUN git clone --recurse-submodules --depth 1 https://github.com/kholia/OSX-KVM.git /home/arch/OSX-KVM
 
-# enable ssh
-# docker exec .... ./enable-ssh.sh
 WORKDIR /home/arch/OSX-KVM
-
-RUN touch enable-ssh.sh \
-    && chmod +x ./enable-ssh.sh \
-    && tee -a enable-ssh.sh <<< '[[ -f /etc/ssh/ssh_host_rsa_key ]] || \' \
-    && tee -a enable-ssh.sh <<< '[[ -f /etc/ssh/ssh_host_ecdsa_key ]] || \' \
-    && tee -a enable-ssh.sh <<< '[[ -f /etc/ssh/ssh_host_ed25519_key ]] || \' \
-    && tee -a enable-ssh.sh <<< 'sudo /usr/bin/ssh-keygen -A' \
-    && tee -a enable-ssh.sh <<< 'nohup sudo /usr/bin/sshd -D &'
 
 # QEMU CONFIGURATOR
 # set optional ram at runtime -e RAM=16
@@ -143,78 +133,14 @@ RUN sed -e '/^fish mount \/dev\/sda2 \//i fish modprobe vfat' \
     && grep -q '^fish modprobe vfat' ./opencore-image-ng.sh \
     && chmod +x ./opencore-image-ng.sh
 
-RUN touch Launch.sh \
-    && chmod +x ./Launch.sh \
-    && tee -a Launch.sh <<< '#!/bin/bash' \
-    && tee -a Launch.sh <<< 'set -eux' \
-    && tee -a Launch.sh <<< 'sudo chown    $(id -u):$(id -g) /dev/kvm 2>/dev/null || true' \
-    && tee -a Launch.sh <<< 'sudo chown -R $(id -u):$(id -g) /dev/snd 2>/dev/null || true' \
-    && tee -a Launch.sh <<< '[[ "${RAM}" = max ]] && export RAM="$(("$(head -n1 /proc/meminfo | tr -dc "[:digit:]") / 1000000"))"' \
-    && tee -a Launch.sh <<< '[[ "${RAM}" = half ]] && export RAM="$(("$(head -n1 /proc/meminfo | tr -dc "[:digit:]") / 2000000"))"' \
-    && tee -a Launch.sh <<< 'exec qemu-system-x86_64 -m ${RAM:-4}000 \' \
-    && tee -a Launch.sh <<< '-cpu ${CPU:-Skylake-Client,-hle,-rtm},${CPUID_FLAGS:-kvm=on,vendor=GenuineIntel,+invtsc,vmware-cpuid-freq=on,+ssse3,+sse4.2,+popcnt,+avx,+aes,+xsave,+xsaveopt,check,}${BOOT_ARGS} \' \
-    && tee -a Launch.sh <<< '-machine q35,${KVM-"accel=kvm:tcg"} \' \
-    && tee -a Launch.sh <<< '-smp ${CPU_STRING:-${SMP:-4},cores=${CORES:-4}} \' \
-    && tee -a Launch.sh <<< '-device qemu-xhci,id=xhci \' \
-    && tee -a Launch.sh <<< '-device usb-kbd,bus=xhci.0 -device usb-tablet,bus=xhci.0 \' \
-    && tee -a Launch.sh <<< '-device isa-applesmc,osk=ourhardworkbythesewordsguardedpleasedontsteal\(c\)AppleComputerInc \' \
-    && tee -a Launch.sh <<< '-drive if=pflash,format=raw,readonly=on,file=/home/arch/OSX-KVM/OVMF_CODE_4M.fd \' \
-    && tee -a Launch.sh <<< '-drive if=pflash,format=raw,file=/home/arch/OSX-KVM/OVMF_VARS-1920x1080.fd \' \
-    && tee -a Launch.sh <<< '-smbios type=2 \' \
-    && tee -a Launch.sh <<< '-audiodev ${AUDIO_DRIVER:-alsa},id=hda -device ich9-intel-hda -device hda-duplex,audiodev=hda \' \
-    && tee -a Launch.sh <<< '-device ich9-ahci,id=sata \' \
-    && tee -a Launch.sh <<< '-drive id=OpenCoreBoot,if=none,snapshot=on,format=qcow2,file=${BOOTDISK:-/home/arch/OSX-KVM/OpenCore/OpenCore.qcow2} \' \
-    && tee -a Launch.sh <<< '-device ide-hd,bus=sata.2,drive=OpenCoreBoot \' \
-    && tee -a Launch.sh <<< '-device ide-hd,bus=sata.3,drive=InstallMedia \' \
-    && tee -a Launch.sh <<< '-drive id=InstallMedia,if=none,file=/home/arch/OSX-KVM/BaseSystem.img,format=${BASESYSTEM_FORMAT:-qcow2} \' \
-    && tee -a Launch.sh <<< '-drive id=MacHDD,if=none,file=${IMAGE_PATH:-/home/arch/OSX-KVM/mac_hdd_ng.img},format=${IMAGE_FORMAT:-qcow2} \' \
-    && tee -a Launch.sh <<< '-device ide-hd,bus=sata.4,drive=MacHDD \' \
-    && tee -a Launch.sh <<< '-netdev user,id=net0,hostfwd=tcp::${INTERNAL_SSH_PORT:-10022}-:22,hostfwd=tcp::${SCREEN_SHARE_PORT:-5900}-:5900,${ADDITIONAL_PORTS} \' \
-    && tee -a Launch.sh <<< '-device ${NETWORKING:-virtio-net-pci},netdev=net0,id=net0,mac=${MAC_ADDRESS:-52:54:00:09:49:17} \' \
-    && tee -a Launch.sh <<< '-monitor stdio \' \
-    && tee -a Launch.sh <<< '-boot menu=on \' \
-    && tee -a Launch.sh <<< '-device vmware-svga \' \
-    && tee -a Launch.sh <<< '${EXTRA:-}'
-
-# Writes OSX-KVM's OpenCore config with the serials from the environment, if set,
-# and with the picker off if NOPICKER=true. Used for the nopicker bootdisk and by
-# GENERATE_UNIQUE and GENERATE_SPECIFIC unless MASTER_PLIST_URL is set.
-RUN touch opencore-config.py \
-    && chmod +x ./opencore-config.py \
-    && tee -a opencore-config.py <<< '#!/usr/bin/env python3' \
-    && tee -a opencore-config.py <<< 'import os, plistlib, re, sys' \
-    && tee -a opencore-config.py <<< 'with open("/home/arch/OSX-KVM/OpenCore/config.plist", "rb") as f:' \
-    && tee -a opencore-config.py <<< '    config = plistlib.load(f)' \
-    && tee -a opencore-config.py <<< 'if os.environ.get("SERIAL"):' \
-    && tee -a opencore-config.py <<< '    generic = config["PlatformInfo"]["Generic"]' \
-    && tee -a opencore-config.py <<< '    generic["SystemProductName"] = os.environ["DEVICE_MODEL"]' \
-    && tee -a opencore-config.py <<< '    generic["SystemSerialNumber"] = os.environ["SERIAL"]' \
-    && tee -a opencore-config.py <<< '    generic["MLB"] = os.environ["BOARD_SERIAL"]' \
-    && tee -a opencore-config.py <<< '    generic["SystemUUID"] = os.environ["UUID"]' \
-    && tee -a opencore-config.py <<< '    generic["ROM"] = bytes.fromhex(os.environ["MAC_ADDRESS"].replace(":", ""))' \
-    && tee -a opencore-config.py <<< '    width, height = os.environ.get("WIDTH") or "1920", os.environ.get("HEIGHT") or "1080"' \
-    && tee -a opencore-config.py <<< '    config["UEFI"]["Output"]["Resolution"] = f"{width}x{height}@32"' \
-    && tee -a opencore-config.py <<< 'if os.environ.get("NOPICKER") == "true":' \
-    && tee -a opencore-config.py <<< '    config["Misc"]["Boot"]["ShowPicker"] = False' \
-    && tee -a opencore-config.py <<< '    config["Misc"]["Boot"]["Timeout"] = 0' \
-    && tee -a opencore-config.py <<< '    # only list APFS and HFS volumes: with every volume, the bootdisk'"'"'s own EFI' \
-    && tee -a opencore-config.py <<< '    # partition comes first, fails to boot, and OpenCore shows the picker anyway' \
-    && tee -a opencore-config.py <<< '    config["Misc"]["Security"]["ScanPolicy"] = 0x1 | 0x100 | 0x200' \
-    && tee -a opencore-config.py <<< '# the config names a kext that ships as MCEReporterDisabler.kext; without it' \
-    && tee -a opencore-config.py <<< '# AppleIntelMCEReporter panics on iMacPro1,1 and MacPro models' \
-    && tee -a opencore-config.py <<< 'for kext in config["Kernel"]["Add"]:' \
-    && tee -a opencore-config.py <<< '    if kext["BundlePath"] == "AppleMCEReporterDisabler.kext" and not os.path.exists("/home/arch/OSX-KVM/OpenCore/EFI/OC/Kexts/AppleMCEReporterDisabler.kext"):' \
-    && tee -a opencore-config.py <<< '        kext["BundlePath"] = "MCEReporterDisabler.kext"' \
-    && tee -a opencore-config.py <<< '# keep <data> on one line like the original, plistlib wraps it' \
-    && tee -a opencore-config.py <<< 'out = plistlib.dumps(config, sort_keys=False)' \
-    && tee -a opencore-config.py <<< 'out = re.sub(rb"<data>(.*?)</data>", lambda m: b"<data>" + b"".join(m[1].split()) + b"</data>", out, flags=re.S)' \
-    && tee -a opencore-config.py <<< 'sys.stdout.buffer.write(out)'
-
 ENV USER=arch
 
 # libguestfs verbose
 ENV LIBGUESTFS_DEBUG=1
 ENV LIBGUESTFS_TRACE=1
+
+# entrypoint.sh, Launch.sh, enable-ssh.sh and opencore-config.py
+COPY --chown=arch:arch --chmod=755 rootfs/home/arch/OSX-KVM/ /home/arch/OSX-KVM/
 
 # OSX-KVM only ships OpenCore.qcow2, so build the NOPICKER=true bootdisk from the
 # same config with the picker off. opencore-image-ng.sh takes EFI/ and
@@ -312,42 +238,4 @@ ENV SHORTNAME=tahoe
 
 ENV BASESYSTEM_IMAGE=BaseSystem.img
 
-CMD ! [[ -e "${BASESYSTEM_IMAGE:-BaseSystem.img}" ]] \
-        && printf '%s\n' "No BaseSystem.img available, downloading ${SHORTNAME}" \
-        && make \
-        && qemu-img convert BaseSystem.dmg -O qcow2 -p -c ${BASESYSTEM_IMAGE:-BaseSystem.img} \
-        && rm ./BaseSystem.dmg \
-    ; sudo touch /dev/kvm /dev/snd "${IMAGE_PATH}" "${BOOTDISK}" "${ENV}" 2>/dev/null || true \
-    ; sudo chown -R $(id -u):$(id -g) /dev/kvm /dev/snd "${IMAGE_PATH}" "${BOOTDISK}" "${ENV}" 2>/dev/null || true \
-    ; [[ "${NOPICKER}" == true ]] && { \
-        sed -i '/^.*InstallMedia.*/d' Launch.sh \
-        && export BOOTDISK="${BOOTDISK:=/home/arch/OSX-KVM/OpenCore/OpenCore-nopicker.qcow2}" \
-    ; } \
-    || export BOOTDISK="${BOOTDISK:=/home/arch/OSX-KVM/OpenCore/OpenCore.qcow2}" \
-    ; [[ "${GENERATE_UNIQUE}" == true ]] && { \
-        ./Docker-OSX/osx-serial-generator/generate-unique-machine-values.sh \
-            --count 1 \
-            --tsv ./serial.tsv \
-            --width "${WIDTH:-1920}" \
-            --height "${HEIGHT:-1080}" \
-            --output-env "${ENV:=/env}" \
-    || exit 1 ; } \
-    ; [[ "${GENERATE_UNIQUE}" == true || "${GENERATE_SPECIFIC}" == true ]] && { \
-            source "${ENV:=/env}" 2>/dev/null \
-            ; if [[ "${MASTER_PLIST_URL}" ]]; then \
-                curl -fL -o ./serial.config.plist "${MASTER_PLIST_URL}" \
-            ; else \
-                ./opencore-config.py > ./serial.config.plist \
-            ; fi \
-            && ./Docker-OSX/osx-serial-generator/generate-specific-bootdisk.sh \
-            --master-plist ./serial.config.plist \
-            --model "${DEVICE_MODEL}" \
-            --serial "${SERIAL}" \
-            --board-serial "${BOARD_SERIAL}" \
-            --uuid "${UUID}" \
-            --mac-address "${MAC_ADDRESS}" \
-            --width "${WIDTH:-1920}" \
-            --height "${HEIGHT:-1080}" \
-            --output-bootdisk "${BOOTDISK:=/home/arch/OSX-KVM/OpenCore/OpenCore.qcow2}" \
-    || exit 1 ; } \
-    ; ./enable-ssh.sh && /bin/bash -c ./Launch.sh
+CMD ["./entrypoint.sh"]
