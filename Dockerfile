@@ -195,16 +195,6 @@ RUN touch Launch.sh \
     && tee -a Launch.sh <<< '-device vmware-svga \' \
     && tee -a Launch.sh <<< '${EXTRA:-}'
 
-# docker exec containerid mv ./Launch-nopicker.sh ./Launch.sh
-# This is now a legacy command.
-# You can use -e BOOTDISK=/bootdisk with -v ./bootdisk.img:/bootdisk
-
-### LEGACY CODE
-RUN grep -v InstallMedia ./Launch.sh > ./Launch-nopicker.sh \
-    && chmod +x ./Launch-nopicker.sh \
-    && sed -i -e s/OpenCore\.qcow2/OpenCore\-nopicker\.qcow2/ ./Launch-nopicker.sh
-###
-
 # Writes OSX-KVM's OpenCore config with the serials from the environment, if set,
 # and with the picker off if NOPICKER=true. Used for the nopicker bootdisk and by
 # GENERATE_UNIQUE and GENERATE_SPECIFIC unless MASTER_PLIST_URL is set.
@@ -257,10 +247,6 @@ RUN cp -a ./OpenCore/EFI . \
         --cfg ./nopicker.config.plist \
         --img ./OpenCore/OpenCore-nopicker.qcow2 \
     && rm -rf ./EFI ./startup.nsh ./nopicker.config.plist /var/tmp/.guestfs-*
-
-### symlink the old directory as upstream has renamed a directory. Symlinking purely for backwards compatability!
-RUN ln -s /home/arch/OSX-KVM/OpenCore /home/arch/OSX-KVM/OpenCore-Catalina || true
-####
 
 #### SPECIAL RUNTIME ARGUMENTS BELOW
 # env -e ADDITIONAL_PORTS with a comma
