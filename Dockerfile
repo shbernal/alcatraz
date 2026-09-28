@@ -68,8 +68,7 @@ RUN pacman -Sy archlinux-keyring --noconfirm \
     && pacman-key --init \
     && pacman-key --populate archlinux
 
-RUN pacman -Syu git zip vim nano alsa-utils openssh --noconfirm \
-    && ln -s /bin/vim /bin/vi \
+RUN pacman -Syu git alsa-utils openssh --noconfirm \
     && useradd arch -p arch \
     && tee -a /etc/sudoers <<< 'arch ALL=(ALL) NOPASSWD: ALL' \
     && mkdir -p /home/arch \
