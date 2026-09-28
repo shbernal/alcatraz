@@ -142,7 +142,7 @@ ARG LINUX=true
 # required to use libguestfs inside a docker container, to create bootdisks for docker-osx on-the-fly
 # reminder this is what makes :naked image larger than expected
 RUN if [[ "${LINUX}" == true ]]; then \
-        sudo pacman -Syu linux linux-headers archlinux-keyring guestfs-tools mkinitcpio pcre pcre2 --noconfirm \
+        sudo pacman -Syu linux linux-headers archlinux-keyring guestfs-tools mkinitcpio --noconfirm \
         && libguestfs-test-tool \
         && rm -rf /var/tmp/.guestfs-* \
         && yes | sudo pacman -Scc \
