@@ -1,0 +1,63 @@
+name: Image
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  schedule:
+    # Weekly, to pick up Arch and QEMU fixes on the rolling base image.
+    - cron: '17 4 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Resolve the base image digest
+        id: base
+        run: |
+          digest="$(docker buildx imagetools inspect archlinux:base-devel --format '{{json .Manifest.Digest}}' | tr -d '"')"
+          echo "digest=${digest}" >> "$GITHUB_OUTPUT"
+
+      - id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/alcatraz
+          flavor: latest=false
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
+            type=sha,format=short
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=ref,event=pr
+          labels: |
+            org.opencontainers.image.licenses=GPL-3.0-or-later
+            org.opencontainers.image.description=macOS in a container: QEMU/KVM with OSX-KVM's OpenCore
+
+      - uses: docker/setup-buildx-action@v4
+
+      - if: github.event_name != 'pull_request'
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v7
+        with:
+          context: .
+          platforms: linux/amd64
+          build-args: BASE_DIGEST=${{ steps.base.outputs.digest }}
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
