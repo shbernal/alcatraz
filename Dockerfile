@@ -23,8 +23,6 @@
 # Build:
 #
 #       docker build -t docker-osx .
-#       docker build -t docker-osx --build-arg VERSION=10.15.5 --build-arg SIZE=200G .
-#       docker build -t docker-osx-sonoma --build-arg BRANCH=sonoma --build-arg SHORTNAME=sonoma .
 #
 # Basic Run:
 #
@@ -38,8 +36,6 @@
 # Optargs:
 #
 #       -v $PWD/disk.img:/image
-#       -e SIZE=200G
-#       -e VERSION=10.15.6
 #       -e RAM=5
 #       -e SMP=4
 #       -e CORES=4
@@ -57,8 +53,6 @@ LABEL maintainer='https://twitter.com/sickcodes <https://sick.codes>'
 
 SHELL ["/bin/bash", "-c"]
 
-# change disk size here or add during build, e.g. --build-arg VERSION=10.14.5 --build-arg SIZE=50G
-ARG SIZE=200G
 ARG PARALLEL_DOWNLOADS=30
 
 RUN perl -i -p -e s/^\#Color/Color$'\n'ParallelDownloads\ =\ ${PARALLEL_DOWNLOADS:=30}/g /etc/pacman.conf 
