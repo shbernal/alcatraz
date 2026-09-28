@@ -137,13 +137,6 @@ RUN sudo pacman -Syu bc qemu-desktop edk2-ovmf wget --overwrite '*' --noconfirm 
 
 WORKDIR /home/arch/OSX-KVM
 
-# fix invalid signature on old libguestfs
-ARG SIGLEVEL=Never
-
-RUN sudo tee -a /etc/pacman.conf <<< "SigLevel = ${SIGLEVEL}" \
-    && sudo tee -a /etc/pacman.conf <<< 'RemoteFileSigLevel = Optional' \
-    && sudo sed -i -e 's/^\#RemoteFileSigLevel/RemoteFileSigLevel/g' /etc/pacman.conf
-
 ARG LINUX=true
 
 # required to use libguestfs inside a docker container, to create bootdisks for docker-osx on-the-fly
