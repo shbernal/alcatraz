@@ -13,7 +13,7 @@
   - [docs/metadata-files.md](docs/metadata-files.md)
 
 - Project rules
-  - Backwards compatible with Docker-OSX: env var names and defaults, the `arch` user, `/home/arch/OSX-KVM`, `IMAGE_PATH`, `Launch.sh` and `enable-ssh.sh` stay as they are, so existing disks and scripts keep working.
+  - Naming and layout follow what makes sense in this project, not Docker-OSX. Renames that break users go in a major release with a row in the README's upgrade table.
   - GPL-3.0-or-later. `LICENSE` stays byte-for-byte; attribution lives in `CREDITS.md`. Vendored scripts in `serial/` keep their own headers.
   - `OSX_KVM_REF` bumps are deliberate and need a boot test.
 
