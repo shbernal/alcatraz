@@ -4,8 +4,7 @@
 
 - Key commands
   - `docker build -t alcatraz .`
-  - `shellcheck rootfs/opt/alcatraz/*.sh`
-  - Headless test run: see CONTRIBUTING.md
+  - Tests (shellcheck, offline checks, boot smoke test): see CONTRIBUTING.md
 
 - Key documentation
   - [README.md](README.md), [FAQ.md](FAQ.md)

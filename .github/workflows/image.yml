@@ -20,6 +20,8 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      - run: shellcheck rootfs/opt/alcatraz/*.sh tests/*.sh
+
       - name: Resolve the base image digest
         id: base
         run: |
@@ -43,6 +45,41 @@ jobs:
             org.opencontainers.image.description=macOS in a container: QEMU/KVM with OSX-KVM's OpenCore
 
       - uses: docker/setup-buildx-action@v4
+
+      - name: Build for testing
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          platforms: linux/amd64
+          build-args: BASE_DIGEST=${{ steps.base.outputs.digest }}
+          load: true
+          tags: alcatraz:test
+          cache-from: type=gha
+
+      - name: Offline checks
+        run: docker run --rm -v ./tests:/tests:ro --entrypoint python3 alcatraz:test /tests/offline.py
+
+      - name: Check for KVM
+        run: test -c /dev/kvm || { echo "the runner has no /dev/kvm" >&2; exit 1; }
+
+      - name: Boot to the OpenCore picker
+        run: SMOKE_SCREENSHOT=picker.png tests/smoke-test.sh alcatraz:test
+
+      - name: Boot without the picker
+        run: SMOKE_SCREENSHOT=nopicker.png tests/smoke-test.sh alcatraz:test -e BOOT_PICKER=false
+
+      - name: Boot a bootdisk built from serial numbers
+        run: |
+          SMOKE_SCREENSHOT=serials.png tests/smoke-test.sh alcatraz:test \
+            -e DEVICE_MODEL=iMacPro1,1 -e SERIAL=C02TW0WAHX87 -e BOARD_SERIAL=C027251024NJG36UE \
+            -e UUID=5CCB366D-9118-4C61-A00A-E5BAF3BED451
+
+      - if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: screenshots
+          path: '*.png'
+          if-no-files-found: ignore
 
       - if: github.event_name != 'pull_request'
         uses: docker/login-action@v4
