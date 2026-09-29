@@ -11,29 +11,11 @@
 #
 #       docker build -t alcatraz .
 #
-# Basic Run:
+# Run (settings and recipes in README.md and FAQ.md):
 #
-#       docker run --device /dev/kvm --device /dev/snd -v /tmp/.X11-unix:/tmp/.X11-unix -e "DISPLAY=${DISPLAY:-:0.0}" ghcr.io/shbernal/alcatraz:latest
-#
-# Run with SSH:
-#
-#       docker run --device /dev/kvm --device /dev/snd -e RAM=6 -p 50922:10022 -v /tmp/.X11-unix:/tmp/.X11-unix -e "DISPLAY=${DISPLAY:-:0.0}" ghcr.io/shbernal/alcatraz:latest
-#       # ssh fullname@localhost -p 50922
-#
-# Optargs:
-#
-#       -v $PWD/disk.img:/image
-#       -e RAM=5
-#       -e SMP=4
-#       -e CORES=4
-#       -e EXTRA=
-#       -e INTERNAL_SSH_PORT=10022
-#       -e MAC_ADDRESS=
-#
-# Extra QEMU args:
-#
-#       docker run ... -e EXTRA="-usb -device usb-host,hostbus=1,hostaddr=8" ...
-#       # you will also need to pass the device to the container
+#       docker run -it --device /dev/kvm -p 50922:10022 -v ./mac:/data \
+#           -v /tmp/.X11-unix:/tmp/.X11-unix -e "DISPLAY=${DISPLAY:-:0.0}" \
+#           ghcr.io/shbernal/alcatraz:latest
 
 FROM archlinux:base-devel
 
@@ -69,17 +51,13 @@ RUN pacman -Sy archlinux-keyring --noconfirm \
     && pacman-key --populate archlinux
 
 RUN pacman -Syu git alsa-utils openssh --noconfirm \
-    && useradd arch -p arch \
-    && tee -a /etc/sudoers <<< 'arch ALL=(ALL) NOPASSWD: ALL' \
-    && mkdir -p /home/arch \
-    && chown arch:arch /home/arch
+    && useradd -m alcatraz \
+    && tee -a /etc/sudoers <<< 'alcatraz ALL=(ALL) NOPASSWD: ALL'
 
 # allow ssh to container
-RUN mkdir -p -m 700 /root/.ssh
-
-WORKDIR /root/.ssh
-RUN touch authorized_keys \
-    && chmod 644 authorized_keys
+RUN mkdir -p -m 700 /root/.ssh \
+    && touch /root/.ssh/authorized_keys \
+    && chmod 644 /root/.ssh/authorized_keys
 
 WORKDIR /etc/ssh
 RUN tee -a sshd_config <<< 'AllowTcpForwarding yes' \
@@ -92,144 +70,68 @@ RUN tee -a sshd_config <<< 'AllowTcpForwarding yes' \
     && tee -a sshd_config <<< 'HostKey /etc/ssh/ssh_host_ecdsa_key' \
     && tee -a sshd_config <<< 'HostKey /etc/ssh/ssh_host_ed25519_key'
 
-USER arch
+RUN pacman -Syu bc qemu-desktop edk2-ovmf wget --overwrite '*' --noconfirm \
+    && yes | pacman -Scc
+
+# libguestfs builds the bootdisks (nopicker at build time, serials at run time).
+# Its appliance needs a kernel, which is most of this layer's size.
+RUN pacman -Syu linux linux-headers archlinux-keyring guestfs-tools mkinitcpio --noconfirm \
+    && libguestfs-test-tool \
+    && rm -rf /var/tmp/.guestfs-* \
+    && yes | pacman -Scc
 
 # OSX-KVM provides the firmware, the OpenCore bootdisk and its config, and the
-# macOS download script. Bump the commit on purpose and test a boot.
+# macOS download script. It stays as fetched. Bump the commit on purpose and
+# test a boot.
 ARG OSX_KVM_REF=4c378a4b5e0b219783683012bec680325eb40719
-RUN git init -q /home/arch/OSX-KVM \
-    && cd /home/arch/OSX-KVM \
+RUN git init -q /opt/osx-kvm \
+    && cd /opt/osx-kvm \
     && git fetch -q --depth 1 https://github.com/kholia/OSX-KVM.git "${OSX_KVM_REF}" \
     && git checkout -q FETCH_HEAD \
     && git submodule update -q --init --depth 1
 
-WORKDIR /home/arch/OSX-KVM
+COPY --chmod=755 rootfs/opt/alcatraz/ /opt/alcatraz/
 
-# QEMU CONFIGURATOR
-# set optional ram at runtime -e RAM=16
-# set optional cores at runtime -e SMP=4 -e CORES=2
-# add any additional commands in QEMU cli format -e EXTRA="-usb -device usb-host,hostbus=1,hostaddr=8"
+# OSX-KVM only ships OpenCore.qcow2 (with the picker), so build the picker-less
+# bootdisk from the same config.
+RUN BOOT_PICKER=false /opt/alcatraz/build-bootdisk.sh /opt/alcatraz/nopicker.qcow2 \
+    && rm -rf /var/tmp/.guestfs-*
 
-# default env vars, RUNTIME ONLY, not for editing in build time.
+# Everything a container writes lives in /data: see README.md.
+RUN install -d -o alcatraz -g alcatraz /data
 
-RUN sudo pacman -Syu bc qemu-desktop edk2-ovmf wget --overwrite '*' --noconfirm \
-    && yes | sudo pacman -Scc
+USER alcatraz
+WORKDIR /data
+ENV USER=alcatraz
 
-ARG LINUX=true
-
-# libguestfs builds the bootdisks (nopicker at build time, serials at run time).
-# Its appliance needs a kernel, which is most of this layer's size.
-RUN if [[ "${LINUX}" == true ]]; then \
-        sudo pacman -Syu linux linux-headers archlinux-keyring guestfs-tools mkinitcpio --noconfirm \
-        && libguestfs-test-tool \
-        && rm -rf /var/tmp/.guestfs-* \
-        && yes | sudo pacman -Scc \
-    ; fi
-
-ENV USER=arch
-
-# libguestfs verbose
-ENV LIBGUESTFS_DEBUG=1
-ENV LIBGUESTFS_TRACE=1
-
-# entrypoint.sh, Launch.sh, enable-ssh.sh, opencore-config.py and the serial
-# generator in serial/
-COPY --chown=arch:arch --chmod=755 rootfs/home/arch/OSX-KVM/ /home/arch/OSX-KVM/
-
-# OSX-KVM only ships OpenCore.qcow2, so build the NOPICKER=true bootdisk from the
-# same config with the picker off. opencore-image-ng.sh takes EFI/ and
-# startup.nsh from the current directory.
-RUN cp -a ./OpenCore/EFI . \
-    && echo 'fs0:\EFI\BOOT\BOOTx64.efi' > startup.nsh \
-    && NOPICKER=true ./opencore-config.py > ./nopicker.config.plist \
-    && ./serial/opencore-image-ng.sh \
-        --cfg ./nopicker.config.plist \
-        --img ./OpenCore/OpenCore-nopicker.qcow2 \
-    && rm -rf ./EFI ./startup.nsh ./nopicker.config.plist /var/tmp/.guestfs-*
-
-#### SPECIAL RUNTIME ARGUMENTS BELOW
-# env -e ADDITIONAL_PORTS with a comma
-# for example, -e ADDITIONAL_PORTS=hostfwd=tcp::23-:23,
-ENV ADDITIONAL_PORTS=
-
-# since the Makefile uses raw, and raw uses the full disk amount
-# we want to use a compressed qcow2
-# ENV BASESYSTEM_FORMAT=raw
-ENV BASESYSTEM_FORMAT=qcow2
-
-# add additional QEMU boot arguments
-ENV BOOT_ARGS=
-
-ENV BOOTDISK=
-
-# edit the CPU that is being emulated
-ENV CPU=Skylake-Client,-hle,-rtm
-ENV CPUID_FLAGS='kvm=on,vendor=GenuineIntel,+invtsc,vmware-cpuid-freq=on,+ssse3,+sse4.2,+popcnt,+avx,+aes,+xsave,+xsaveopt,check,'
-
-ENV DISPLAY=:0.0
-
-# Where GENERATE_UNIQUE writes the generated serials, and GENERATE_SPECIFIC reads them
-# from. Mount a file here to reuse the serials in the next container.
-ENV ENV=/env
-
-# Boolean for generating a bootdisk with new random serials.
-ENV GENERATE_UNIQUE=false
-
-# Boolean for generating a bootdisk with specific serials.
-ENV GENERATE_SPECIFIC=false
-
-ENV IMAGE_PATH=/home/arch/OSX-KVM/mac_hdd_ng.img
-ENV IMAGE_FORMAT=qcow2
-
-ENV KVM='accel=kvm:tcg'
-
-# A config.plist with {{SERIAL}}-style placeholders to use instead of OSX-KVM's own
-# when generating a bootdisk, e.g. the templates in sickcodes/osx-serial-generator.
-ENV MASTER_PLIST_URL=
-
-# ENV NETWORKING=e1000-82545em
-ENV NETWORKING=virtio-net-pci
-
-# boolean for skipping the disk selection menu at in the boot process
-ENV NOPICKER=false
-
-# dynamic RAM options for runtime
+# Runtime settings, documented in README.md.
+ENV MACOS_VERSION=tahoe
 ENV RAM=4
-# ENV RAM=max
-# ENV RAM=half
-
-# The x and y coordinates for resolution.
-# Must be used with either -e GENERATE_UNIQUE=true or -e GENERATE_SPECIFIC=true.
+ENV CPUS=4
+ENV CORES=4
+ENV CPU_MODEL=Skylake-Client,-hle,-rtm
+ENV CPU_FLAGS=kvm=on,vendor=GenuineIntel,+invtsc,vmware-cpuid-freq=on,+ssse3,+sse4.2,+popcnt,+avx,+aes,+xsave,+xsaveopt,check
+ENV ACCEL=kvm:tcg
+ENV DISK_PATH=/data/disk.img
+ENV DISK_FORMAT=qcow2
+ENV DISK_SIZE=256G
+ENV INSTALLER_PATH=/data/installer.img
+ENV INSTALLER_FORMAT=qcow2
+ENV BOOT_PICKER=true
+ENV BOOTDISK=
+ENV SERIALS=default
 ENV WIDTH=1920
 ENV HEIGHT=1080
+ENV NETWORKING=virtio-net-pci
+ENV MAC_ADDRESS=52:54:00:09:49:17
+ENV INTERNAL_SSH_PORT=10022
+ENV SCREEN_SHARE_PORT=5900
+ENV PORTS=
+ENV AUDIO_DRIVER=alsa
+ENV DISPLAY=:0.0
+ENV QEMU_ARGS=
+ENV SSH=false
 
-VOLUME ["/tmp/.X11-unix"]
+VOLUME ["/data"]
 
-# check if /image is a disk image or a directory. This allows you to optionally use -v disk.img:/image
-# NOPICKER is used to skip the disk selection screen
-# GENERATE_UNIQUE is used to generate serial numbers on boot.
-# /env is a file that you can generate and save using -v source.sh:/env
-# the env file is a file that you can carry to the next container which will supply the serials numbers.
-# GENERATE_SPECIFIC is used to either accept the env serial numbers OR you can supply using:
-    # -e DEVICE_MODEL="iMacPro1,1" \
-    # -e SERIAL="C02TW0WAHX87" \
-    # -e BOARD_SERIAL="C027251024NJG36UE" \
-    # -e UUID="5CCB366D-9118-4C61-A00A-E5BAF3BED451" \
-    # -e MAC_ADDRESS="A8:5C:2C:9A:46:2F" \
-
-# the output will be /bootdisk.
-# /bootdisk is a useful persistent place to store the 15Mb serial number bootdisk.
-
-# if you don't set any of the above:
-# the default serial numbers are already contained in ./OpenCore/OpenCore.qcow2
-# And the default serial numbers
-
-# DMCA compliant download process
-# If BaseSystem.img does not exist, download ${SHORTNAME}
-
-# shortname default is below
-ENV SHORTNAME=tahoe
-
-ENV BASESYSTEM_IMAGE=BaseSystem.img
-
-CMD ["./entrypoint.sh"]
+CMD ["/opt/alcatraz/entrypoint.sh"]

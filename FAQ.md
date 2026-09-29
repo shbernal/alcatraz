@@ -12,11 +12,11 @@ Sick.Codes wrote a [deeper dive into the subject](https://sick.codes/is-hackinto
 
 ### What does alcatraz do?
 
-It runs a macOS virtual machine under [Docker](https://en.wikipedia.org/wiki/Docker_(software)). The [Dockerfile](Dockerfile) builds an Arch Linux image with QEMU, OVMF firmware, a pinned copy of [OSX-KVM](https://github.com/kholia/OSX-KVM) and a second OpenCore bootdisk with the picker turned off. When a container starts, [entrypoint.sh](rootfs/home/arch/OSX-KVM/entrypoint.sh):
+It runs a macOS virtual machine under [Docker](https://en.wikipedia.org/wiki/Docker_(software)). The [Dockerfile](Dockerfile) builds an Arch Linux image with QEMU, OVMF firmware, a pinned copy of [OSX-KVM](https://github.com/kholia/OSX-KVM) and a second OpenCore bootdisk with the picker turned off. When a container starts, [entrypoint.sh](rootfs/opt/alcatraz/entrypoint.sh):
 
-1. downloads the macOS recovery image and creates an empty disk, if they're missing
-2. builds a bootdisk with new or given serial numbers, if asked to
-3. starts QEMU through [Launch.sh](rootfs/home/arch/OSX-KVM/Launch.sh)
+1. downloads the macOS recovery image and creates an empty disk in `/data`, if they're missing
+2. builds a bootdisk with your serial numbers or `config.plist`, if there are any
+3. starts QEMU through [launch.sh](rootfs/opt/alcatraz/launch.sh)
 
 ### Why Docker?
 
@@ -134,7 +134,7 @@ docker run -i \
     --device /dev/kvm \
     -p 50922:10022 \
     -p 5999:5999 \
-    -e EXTRA="-display none -vnc 0.0.0.0:99,password=on" \
+    -e QEMU_ARGS="-display none -vnc 0.0.0.0:99,password=on" \
     ghcr.io/shbernal/alcatraz:latest
 ```
 
@@ -142,7 +142,7 @@ Use `-i`, not `-it`, so you can type into the QEMU monitor. Press Enter until yo
 
 VNC isn't encrypted. On a remote host, don't publish port 5999; tunnel it instead with `ssh -N <user>@<host> -L 5999:127.0.0.1:5999`.
 
-[SPICE](https://www.spice-space.org/spice-user-manual.html) works the same way: `-p 3001:3001 -e EXTRA="-display none -spice disable-ticketing=on,port=3001"`, then `remote-viewer spice://localhost:3001`. `disable-ticketing` means no password, so keep the port local.
+[SPICE](https://www.spice-space.org/spice-user-manual.html) works the same way: `-p 3001:3001 -e QEMU_ARGS="-display none -spice disable-ticketing=on,port=3001"`, then `remote-viewer spice://localhost:3001`. `disable-ticketing` means no password, so keep the port local.
 
 ### Audio with PulseAudio
 
@@ -157,7 +157,7 @@ Under WSLg, the socket is `/mnt/wslg/runtime-dir/pulse/native`. macOS has no dri
 
 ### USB devices
 
-QEMU runs as the container's `arch` user. The simplest route that needs no extra privileges is USB redirection over the network. On the host, find the device's `vendor:product` ID with `lsusb` and serve it (from the `usbredir` package):
+QEMU runs as the container's `alcatraz` user. The simplest route that needs no extra privileges is USB redirection over the network. On the host, find the device's `vendor:product` ID with `lsusb` and serve it (from the `usbredir` package):
 
 ```bash
 sudo usbredirserver -p 7700 1e3d:2096
@@ -166,7 +166,7 @@ sudo usbredirserver -p 7700 1e3d:2096
 Then attach it when the container starts:
 
 ```bash
-    -e EXTRA="-chardev socket,id=usbredirchardev1,port=7700,host=172.17.0.1 -device usb-redir,chardev=usbredirchardev1,id=usbredirdev1" \
+    -e QEMU_ARGS="-chardev socket,id=usbredirchardev1,port=7700,host=172.17.0.1 -device usb-redir,chardev=usbredirchardev1,id=usbredirdev1" \
 ```
 
 or at any time from the QEMU monitor (press Enter in the container's terminal for the `(qemu)` prompt):
@@ -215,7 +215,7 @@ To share a host folder into macOS, mount it into the container and hand it to QE
 
 ```bash
     -v "${HOME}/somefolder:/mnt/hostshare" \
-    -e EXTRA="-virtfs local,path=/mnt/hostshare,mount_tag=hostshare,security_model=passthrough,id=hostshare" \
+    -e QEMU_ARGS="-virtfs local,path=/mnt/hostshare,mount_tag=hostshare,security_model=passthrough,id=hostshare" \
 ```
 
 Then, in macOS, `sudo -S mount_9p hostshare`.
@@ -226,24 +226,24 @@ Mount the disk image into the container and attach it to a free SATA port:
 
 ```bash
     -v "${PWD}/second.img:/disktwo" \
-    -e EXTRA="-device ide-hd,bus=sata.5,drive=DISK-TWO -drive id=DISK-TWO,if=none,file=/disktwo,format=qcow2" \
+    -e QEMU_ARGS="-device ide-hd,bus=sata.5,drive=DISK-TWO -drive id=DISK-TWO,if=none,file=/disktwo,format=qcow2" \
 ```
 
 ### Extract the virtual disk
 
-With the container stopped, copy the disk out:
+If you mounted `/data`, the disk is already on the host as `disk.img`. Otherwise, with the container stopped, copy the whole data directory out:
 
 ```bash
-docker cp <container-id>:/home/arch/OSX-KVM/mac_hdd_ng.img .
+docker cp <container-id>:/data ./mac
 ```
 
-Then run it with the disk mounted, as in [Keep your disk](README.md#keep-your-disk).
+Then run it with `-v ./mac:/data`, as in [Keep your disk](README.md#keep-your-disk).
 
 To read it on Linux, connect it as a block device and mount the APFS partition with [apfs-fuse](https://github.com/sgan81/apfs-fuse), read-only:
 
 ```bash
 sudo modprobe nbd max_part=8
-sudo qemu-nbd --connect=/dev/nbd0 ./mac_hdd_ng.img
+sudo qemu-nbd --connect=/dev/nbd0 ./mac/disk.img
 sudo fdisk -l /dev/nbd0
 mkdir -p ./part
 sudo apfs-fuse -o allow_other /dev/nbd0p2 ./part
@@ -257,16 +257,16 @@ sudo qemu-nbd --disconnect /dev/nbd0
 
 1. In macOS, delete what you don't need, run `sudo trimforce enable` and reboot.
 2. Zero the free space with `dd if=/dev/zero of=./empty; rm -f ./empty`, then shut down.
-3. [Extract the disk](#extract-the-virtual-disk) and rewrite it: `qemu-img convert -O qcow2 mac_hdd_ng.img smaller.img`. Add `-c` to compress it further, at some cost in speed.
+3. [Extract the disk](#extract-the-virtual-disk) and rewrite it: `qemu-img convert -O qcow2 disk.img smaller.img`. Add `-c` to compress it further, at some cost in speed.
 4. `qemu-img check smaller.img` before you rely on it.
 
 ### Disk space
 
-Every container keeps its disk under `/var/lib/docker`. If that fills up, [keep your disk on the host](README.md#keep-your-disk) somewhere with room, or move Docker's data directory with the `data-root` setting in `/etc/docker/daemon.json`.
+Every container keeps its disk under `/var/lib/docker`. If that fills up, [mount `/data` from the host](README.md#keep-your-disk) somewhere with room, or move Docker's data directory with the `data-root` setting in `/etc/docker/daemon.json`.
 
 ### RAM and CPUs
 
-`RAM`, `SMP` and `CORES` are environment variables, so they apply every time a container starts. `-e RAM=half` gives the guest half of the host's memory. For another CPU topology, set the whole `-smp` value with `CPU_STRING`, for example `-e CPU_STRING=8,sockets=4,cores=2`. Unlike memory, CPU time is shared, so you can give the guest all your cores.
+`RAM`, `CPUS` and `CORES` are environment variables, so they apply every time a container starts. `-e RAM=half` gives the guest half of the host's memory. `CPUS` is the total and `CORES` the cores per socket, so `-e CPUS=8 -e CORES=2` gives four sockets of two cores. Unlike memory, CPU time is shared, so you can give the guest all your cores.
 
 ### Slow UI
 
@@ -294,7 +294,11 @@ This guide provides three methods to apply the necessary kernel patch. All metho
 
 #### Before you start
 
-alcatraz attaches the OpenCore bootdisk with `snapshot=on`, so changes made to it from inside macOS are gone after the next shutdown. Patch a copy of the `config.plist` on the host instead, and have the container build a bootdisk from it: mount it with `-v "${PWD}/config.plist:/config.plist"` and pass `-e MASTER_PLIST_URL=file:///config.plist` with `GENERATE_UNIQUE` or `GENERATE_SPECIFIC`. The serial numbers only go in where the file has `{{SERIAL}}`-style placeholders, see [Serial numbers](README.md#serial-numbers).
+alcatraz attaches the OpenCore bootdisk with `snapshot=on`, so changes made to it from inside macOS are gone after the next shutdown. Patch a copy of the `config.plist` on the host instead and save it as `config.plist` in the `/data` directory; the container then builds its bootdisk from it at every start, with your [serial numbers](README.md#serial-numbers) filled in. To start from the stock config:
+
+```bash
+docker run --rm --entrypoint cat ghcr.io/shbernal/alcatraz:latest /opt/osx-kvm/OpenCore/config.plist > ./mac/config.plist
+```
 
 Whichever method you use:
 - Make sure you can access your EFI partition

@@ -2,11 +2,11 @@
 
 macOS locked in a container. One Docker image runs QEMU with KVM, boots [OSX-KVM](https://github.com/kholia/OSX-KVM)'s OpenCore, and installs macOS from Apple's recovery servers.
 
-alcatraz is a hard fork of [Docker-OSX](https://github.com/sickcodes/Docker-OSX). Disks and `docker run` flags from Docker-OSX work unchanged. See [Coming from Docker-OSX](#coming-from-docker-osx).
+alcatraz is a hard fork of [Docker-OSX](https://github.com/sickcodes/Docker-OSX). Disks from Docker-OSX and alcatraz 1.x boot after a rename; see [Upgrading from 1.x or Docker-OSX](#upgrading-from-1x-or-docker-osx).
 
 ## What's in the image
 
-The image is Arch Linux with QEMU, OVMF firmware and OSX-KVM's OpenCore bootdisk. It holds no macOS. On first start the container downloads the recovery image for the version you pick from Apple's servers, creates an empty 256 GB disk (a qcow2 file, so it only takes the space macOS writes), and boots the installer.
+The image is Arch Linux with QEMU, OVMF firmware and OSX-KVM's OpenCore bootdisk. It holds no macOS. On first start the container downloads the recovery image for the version you pick from Apple's servers, creates an empty 256 GB disk (a qcow2 file, so it only takes the space macOS writes), and boots the installer. Everything it writes goes to `/data`.
 
 Read [Is this legal?](FAQ.md#is-this-legal) before you use it.
 
@@ -26,14 +26,15 @@ Windows 11 works through WSL2 with nested virtualization. See [Can I run it on W
 docker run -it \
     --device /dev/kvm \
     -p 50922:10022 \
+    -v ./mac:/data \
     -v /tmp/.X11-unix:/tmp/.X11-unix \
     -e "DISPLAY=${DISPLAY:-:0.0}" \
     ghcr.io/shbernal/alcatraz:latest
 ```
 
-This installs macOS Tahoe. To install another version, add `-e SHORTNAME=<name>`:
+This installs macOS Tahoe, with the disk in `./mac`. To install another version, add `-e MACOS_VERSION=<name>`:
 
-| `SHORTNAME` | macOS |
+| `MACOS_VERSION` | macOS |
 |---|---|
 | `high-sierra` | High Sierra (10.13) |
 | `mojave` | Mojave (10.14) |
@@ -57,34 +58,22 @@ The installer reboots several times and its time estimates mean nothing. Pick th
 
 ## Keep your disk
 
-The disk lives inside the container. Start the same container again instead of running a new one:
+The container keeps everything it writes in `/data`. Mount a host directory there, as in the quick start, and any new container picks up where the last one stopped:
 
-```bash
-docker ps --all --filter ancestor=ghcr.io/shbernal/alcatraz:latest
-docker start -ai <container-id>
-```
+| File | What it is |
+|---|---|
+| `disk.img` | The macOS disk, created on first start. |
+| `installer.img` | The recovery image, downloaded on first start. Delete it to download another `MACOS_VERSION`. |
+| `ovmf-vars.fd` | UEFI variables, such as boot order and resolution. |
+| `serials.env` | Your serial numbers, see [Serial numbers](#serial-numbers). |
+| `config.plist` | Optional. An OpenCore config to boot with instead of OSX-KVM's. |
+| `bootdisk.qcow2` | The bootdisk built from your serial numbers or `config.plist`, rebuilt at every start. |
 
-`docker rm` deletes the disk with the container. To keep the disk on the host, create it there and mount it:
-
-```bash
-docker run --rm --user "$(id -u):$(id -g)" -v "${PWD}:/out" --entrypoint qemu-img \
-    ghcr.io/shbernal/alcatraz:latest create -f qcow2 /out/mac_hdd_ng.img 256G
-
-docker run -it \
-    --device /dev/kvm \
-    -p 50922:10022 \
-    -v /tmp/.X11-unix:/tmp/.X11-unix \
-    -e "DISPLAY=${DISPLAY:-:0.0}" \
-    -v "${PWD}/mac_hdd_ng.img:/image" \
-    -e IMAGE_PATH=/image \
-    ghcr.io/shbernal/alcatraz:latest
-```
-
-The file has to exist before `docker run`. If it doesn't, Docker creates a directory in its place and QEMU fails. To copy the disk out of an existing container, see [Extract the virtual disk](FAQ.md#extract-the-virtual-disk).
+Without the mount, `/data` is an anonymous Docker volume that `docker rm -v` deletes. To copy it out of such a container, see [Extract the virtual disk](FAQ.md#extract-the-virtual-disk).
 
 ### Skipping the picker
 
-`-e NOPICKER=true` boots straight into the installed disk and leaves the installer out.
+`-e BOOT_PICKER=false` boots straight into the installed disk and leaves the installer out. Once you use it, you can delete `installer.img`.
 
 ## SSH and ports
 
@@ -94,10 +83,10 @@ Turn on Remote Login in macOS (System Settings, General, Sharing). With `-p 5092
 ssh <macos-user>@localhost -p 50922
 ```
 
-QEMU forwards container port 10022 (`INTERNAL_SSH_PORT`) to guest port 22, and container port 5900 (`SCREEN_SHARE_PORT`) to guest port 5900 for Screen Sharing. For other ports, add QEMU `hostfwd` rules to `ADDITIONAL_PORTS`, each ending in a comma, and publish the container port:
+QEMU forwards container port 10022 (`INTERNAL_SSH_PORT`) to guest port 22, and container port 5900 (`SCREEN_SHARE_PORT`) to guest port 5900 for Screen Sharing. For other ports, list them in `PORTS`, as `PORT` or `CONTAINER:GUEST` with an optional `/udp`, and publish the container port:
 
 ```bash
-    -e ADDITIONAL_PORTS='hostfwd=tcp::10023-:80,hostfwd=tcp::10043-:443,' \
+    -e PORTS=10023:80,10043:443 \
     -p 10023:10023 \
     -p 10043:10043 \
 ```
@@ -110,66 +99,48 @@ Every setting is an environment variable passed with `-e`.
 
 | Variable | Default | What it does |
 |---|---|---|
-| `SHORTNAME` | `tahoe` | macOS version to download when `BASESYSTEM_IMAGE` is missing. See [Quick start](#quick-start). |
+| `MACOS_VERSION` | `tahoe` | macOS version to download when `INSTALLER_PATH` is missing. See [Quick start](#quick-start). |
 | `RAM` | `4` | Guest memory in GB. `max` takes all of the host's memory, `half` takes half. |
-| `SMP` | `4` | CPU count for QEMU's `-smp`. |
-| `CORES` | `4` | Cores for QEMU's `-smp`. |
-| `CPU_STRING` | | Replaces the whole `-smp` value, for example `8,sockets=4,cores=2`. |
-| `CPU` | `Skylake-Client,-hle,-rtm` | QEMU CPU model. |
-| `CPUID_FLAGS` | `kvm=on,vendor=GenuineIntel,+invtsc,…` | CPU flags appended to `CPU`. |
-| `BOOT_ARGS` | | Text appended to the `-cpu` value after `CPUID_FLAGS`. |
-| `KVM` | `accel=kvm:tcg` | Appended to `-machine q35,`. |
-| `IMAGE_PATH` | `/home/arch/OSX-KVM/mac_hdd_ng.img` | The macOS disk. |
-| `IMAGE_FORMAT` | `qcow2` | Format of `IMAGE_PATH`. |
-| `NOPICKER` | `false` | `true` hides the OpenCore picker and leaves the installer out. |
-| `BOOTDISK` | | OpenCore bootdisk. Empty means the stock `OpenCore/OpenCore.qcow2`, or `OpenCore/OpenCore-nopicker.qcow2` with `NOPICKER=true`. |
-| `BASESYSTEM_IMAGE` | `BaseSystem.img` | Installer image the container looks for before downloading one. |
-| `BASESYSTEM_FORMAT` | `qcow2` | Format of the installer image. |
-| `NETWORKING` | `virtio-net-pci` | QEMU network device. `vmxnet3` for High Sierra and older, `e1000-82545em` if the network is slow. |
-| `MAC_ADDRESS` | `52:54:00:09:49:17` | Guest MAC address. `GENERATE_UNIQUE` sets it. |
-| `INTERNAL_SSH_PORT` | `10022` | Container port forwarded to guest port 22. |
-| `SCREEN_SHARE_PORT` | `5900` | Container port forwarded to guest port 5900. |
-| `ADDITIONAL_PORTS` | | Extra QEMU `hostfwd` rules, each ending in a comma. |
-| `AUDIO_DRIVER` | `alsa` | QEMU `-audiodev` backend. `none` turns audio off. |
-| `DISPLAY` | `:0.0` | X11 display for the QEMU window. |
-| `EXTRA` | | Extra QEMU arguments, split on spaces. |
-| `GENERATE_UNIQUE` | `false` | `true` generates new serial numbers and builds a bootdisk with them. |
-| `GENERATE_SPECIFIC` | `false` | `true` builds a bootdisk with the serial numbers you pass. |
+| `CPUS` | `4` | Number of virtual CPUs. |
+| `CORES` | `4` | Cores per socket. `CPUS` divided by `CORES` gives the sockets. |
+| `CPU_MODEL` | `Skylake-Client,-hle,-rtm` | QEMU CPU model. |
+| `CPU_FLAGS` | `kvm=on,vendor=GenuineIntel,+invtsc,…` | CPU flags appended to `CPU_MODEL`. |
+| `ACCEL` | `kvm:tcg` | QEMU accelerators, in order of preference. |
+| `DISK_PATH` | `/data/disk.img` | The macOS disk. Created if missing. |
+| `DISK_FORMAT` | `qcow2` | Format of `DISK_PATH`. |
+| `DISK_SIZE` | `256G` | Size of a newly created disk. |
+| `INSTALLER_PATH` | `/data/installer.img` | The recovery image. Downloaded if missing. |
+| `INSTALLER_FORMAT` | `qcow2` | Format of `INSTALLER_PATH`. |
+| `BOOT_PICKER` | `true` | `false` hides the OpenCore picker and leaves the installer out. |
+| `BOOTDISK` | | An OpenCore bootdisk to use as is. Empty means the container picks or builds one. |
+| `SERIALS` | `default` | `random` generates serial numbers into `/data/serials.env` if it doesn't exist. See [Serial numbers](#serial-numbers). |
 | `DEVICE_MODEL` | | Mac model for the serial numbers, for example `iMacPro1,1`. |
-| `SERIAL` | | Serial number. |
+| `SERIAL` | | Serial number. Setting it builds a bootdisk with the values below. |
 | `BOARD_SERIAL` | | Board serial number (MLB). |
 | `UUID` | | System UUID. |
-| `WIDTH` | `1920` | Screen width. Needs `GENERATE_UNIQUE` or `GENERATE_SPECIFIC`. |
-| `HEIGHT` | `1080` | Screen height. Needs `GENERATE_UNIQUE` or `GENERATE_SPECIFIC`. |
-| `ENV` | `/env` | File `GENERATE_UNIQUE` writes the serial numbers to, and `GENERATE_SPECIFIC` reads them from. |
-| `MASTER_PLIST_URL` | | OpenCore `config.plist` template to build the bootdisk from, instead of OSX-KVM's. |
+| `MAC_ADDRESS` | `52:54:00:09:49:17` | Guest MAC address, also the ROM with serial numbers. |
+| `WIDTH` | `1920` | Screen width. Only applies to a bootdisk built from serial numbers. |
+| `HEIGHT` | `1080` | Screen height. Only applies to a bootdisk built from serial numbers. |
+| `NETWORKING` | `virtio-net-pci` | QEMU network device. `vmxnet3` for High Sierra and older, `e1000-82545em` if the network is slow. |
+| `INTERNAL_SSH_PORT` | `10022` | Container port forwarded to guest port 22. |
+| `SCREEN_SHARE_PORT` | `5900` | Container port forwarded to guest port 5900. |
+| `PORTS` | | More forwarded ports, comma-separated: `PORT` or `CONTAINER:GUEST`, with an optional `/udp`. |
+| `AUDIO_DRIVER` | `alsa` | QEMU `-audiodev` backend. `none` turns audio off. |
+| `DISPLAY` | `:0.0` | X11 display for the QEMU window. |
+| `QEMU_ARGS` | | Extra QEMU arguments, split on spaces. |
+| `SSH` | `false` | `true` starts an SSH server in the container itself, separate from the guest's. |
 
-The image also sets `USER`, `LIBGUESTFS_DEBUG` and `LIBGUESTFS_TRACE` for its own use.
+The image also sets `USER` for its own use.
 
-USB devices, extra disks and shared folders go through QEMU arguments in `EXTRA`. The [FAQ](FAQ.md#usb-devices) has recipes.
+USB devices, extra disks and shared folders go through QEMU arguments in `QEMU_ARGS`. The [FAQ](FAQ.md#usb-devices) has recipes.
 
 ## Serial numbers
 
 The stock bootdisk carries OSX-KVM's serial numbers, the same in every install. iMessage and iCloud need your own.
 
-`-e GENERATE_UNIQUE=true` generates a fresh set and builds a new bootdisk with them, which adds about 30 seconds to the start. To keep the same set across containers, save the `ENV` file:
+`-e SERIALS=random` generates a set into `/data/serials.env` on first start. From then on, every start builds a bootdisk from that file, which adds about 30 seconds, whether `SERIALS=random` is still set or not. To use serial numbers you already have, write them to `serials.env` yourself or pass them directly, which takes precedence over the file:
 
 ```bash
-touch ./serials.env
-docker run -it \
-    --device /dev/kvm \
-    -p 50922:10022 \
-    -v /tmp/.X11-unix:/tmp/.X11-unix \
-    -e "DISPLAY=${DISPLAY:-:0.0}" \
-    -e GENERATE_UNIQUE=true \
-    -v "${PWD}/serials.env:/env" \
-    ghcr.io/shbernal/alcatraz:latest
-```
-
-Next time, replace `GENERATE_UNIQUE=true` with `GENERATE_SPECIFIC=true` and keep the `/env` mount. You can also pass the values directly:
-
-```bash
-    -e GENERATE_SPECIFIC=true \
     -e DEVICE_MODEL="iMacPro1,1" \
     -e SERIAL="C02TW0WAHX87" \
     -e BOARD_SERIAL="C027251024NJG36UE" \
@@ -179,26 +150,47 @@ Next time, replace `GENERATE_UNIQUE=true` with `GENERATE_SPECIFIC=true` and keep
 
 Check the serial number inside macOS with `ioreg -l | grep IOPlatformSerialNumber` before you sign in to anything.
 
-Both options write the values into OSX-KVM's `config.plist`. `MASTER_PLIST_URL` swaps in another template with `{{DEVICE_MODEL}}`, `{{SERIAL}}`, `{{BOARD_SERIAL}}`, `{{UUID}}`, `{{ROM}}`, `{{WIDTH}}` and `{{HEIGHT}}` placeholders, such as the ones in [osx-serial-generator](https://github.com/sickcodes/osx-serial-generator).
+The values go into OSX-KVM's `config.plist`, or into `/data/config.plist` if you put one there. `WIDTH` and `HEIGHT` live in the same file, so a resolution change also needs serial numbers.
 
-`WIDTH` and `HEIGHT` live in the same `config.plist`, so a resolution change also needs one of the two options.
+## Upgrading from 1.x or Docker-OSX
 
-## Coming from Docker-OSX
+2.0 moved everything a container writes to `/data` and renamed most settings. To boot an existing disk, put it in a directory as `disk.img` and mount that directory:
 
-Replace `sickcodes/docker-osx:<tag>` with `ghcr.io/shbernal/alcatraz:latest` and keep the rest of the command. Environment variable names and defaults, the `arch` user and the `/home/arch/OSX-KVM` layout are the same, so existing disks boot.
+```bash
+mkdir mac && mv mac_hdd_ng.img mac/disk.img
+docker run ... -v ./mac:/data ghcr.io/shbernal/alcatraz:latest
+```
 
-What changed:
+For a disk still inside an old container, `docker cp <container-id>:/home/arch/OSX-KVM/mac_hdd_ng.img mac/disk.img`. With `BOOT_PICKER=true`, the installer is downloaded again on first start.
 
-- There is one image. For the old `:naked` image, mount the disk and add `-e IMAGE_PATH=/image`, plus `-e NOPICKER=true` if you relied on its default.
-- The `:auto`, `:naked-auto` and VNC images are gone, and so are their pre-installed disks.
-- `Launch-nopicker.sh` is gone. Use `-e NOPICKER=true`.
-- The `/home/arch/OSX-KVM/OpenCore-Catalina` symlink is gone. The directory is `OpenCore`.
+| 1.x and Docker-OSX | 2.0 |
+|---|---|
+| `SHORTNAME` | `MACOS_VERSION` |
+| `IMAGE_PATH`, `IMAGE_FORMAT` | `DISK_PATH`, `DISK_FORMAT` (default `/data/disk.img`) |
+| `BASESYSTEM_IMAGE`, `BASESYSTEM_FORMAT` | `INSTALLER_PATH`, `INSTALLER_FORMAT` |
+| `NOPICKER=true` | `BOOT_PICKER=false` |
+| `SMP` | `CPUS` |
+| `CPU_STRING` | `CPUS` and `CORES` |
+| `CPU` | `CPU_MODEL` |
+| `CPUID_FLAGS`, `BOOT_ARGS` | `CPU_FLAGS` |
+| `KVM=accel=kvm:tcg` | `ACCEL=kvm:tcg` |
+| `EXTRA` | `QEMU_ARGS` |
+| `ADDITIONAL_PORTS=hostfwd=tcp::23-:23,` | `PORTS=23` |
+| `GENERATE_UNIQUE=true` | `SERIALS=random` |
+| `GENERATE_SPECIFIC=true` with `ENV=/env` | `/data/serials.env` |
+| `GENERATE_SPECIFIC=true` with `SERIAL=…` | `SERIAL=…` |
+| `MASTER_PLIST_URL` | `/data/config.plist`, without `{{…}}` placeholders |
+| `/home/arch/OSX-KVM` | `/opt/osx-kvm` (upstream) and `/opt/alcatraz` (scripts) |
+| `Launch.sh`, `enable-ssh.sh` | `/opt/alcatraz/launch.sh`, `/opt/alcatraz/sshd.sh` |
+| user `arch` | user `alcatraz` |
+
+The container's own SSH server no longer starts by default; add `-e SSH=true`. From Docker-OSX, the `:naked`, `:auto` and VNC images are gone; mount your disk and add `-e BOOT_PICKER=false` if you relied on `:naked`'s default.
 
 Disks installed with Docker-OSX's older defaults, a `Penryn` CPU and a `vmxnet3` network card, boot on the current ones. To keep the old virtual hardware for such a disk anyway:
 
 ```bash
-    -e CPU=Penryn \
-    -e CPUID_FLAGS='vendor=GenuineIntel,+invtsc,vmware-cpuid-freq=on,+ssse3,+sse4.2,+popcnt,+avx,+aes,+xsave,+xsaveopt,check,' \
+    -e CPU_MODEL=Penryn \
+    -e CPU_FLAGS='vendor=GenuineIntel,+invtsc,vmware-cpuid-freq=on,+ssse3,+sse4.2,+popcnt,+avx,+aes,+xsave,+xsaveopt,check' \
     -e NETWORKING=vmxnet3 \
 ```
 

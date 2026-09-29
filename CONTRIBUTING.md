@@ -4,9 +4,12 @@ Issues and pull requests are welcome, including fully AI-generated ones. Say whi
 
 ## Layout
 
-- [Dockerfile](Dockerfile) builds the image: Arch Linux, QEMU, OVMF, a pinned OSX-KVM, and the no-picker bootdisk.
-- [rootfs/home/arch/OSX-KVM](rootfs/home/arch/OSX-KVM) holds the scripts the container runs, at the path they take in the image. `entrypoint.sh` prepares the installer and bootdisk and hands over to `Launch.sh`, which starts QEMU.
-- `serial/` holds the serial number scripts from [osx-serial-generator](https://github.com/sickcodes/osx-serial-generator) at 908b3d6, with the changes noted in their git history.
+- [Dockerfile](Dockerfile) builds the image: Arch Linux, QEMU, OVMF, a pinned OSX-KVM in `/opt/osx-kvm`, and the no-picker bootdisk.
+- [rootfs/opt/alcatraz](rootfs/opt/alcatraz) holds the scripts the container runs, at the path they take in the image. `entrypoint.sh` prepares `/data` and the bootdisk and hands over to `launch.sh`, which starts QEMU. `build-bootdisk.sh` and `opencore-config.py` build bootdisks, at build time and for serial numbers.
+- `vendor/osx-serial-generator/` holds scripts from [osx-serial-generator](https://github.com/sickcodes/osx-serial-generator) at 908b3d6, with the changes noted in their git history.
+- [tools](tools) holds scripts users run on their own machines, not in the image.
+
+In the image, `/opt/osx-kvm` stays as fetched, `/opt/alcatraz` is read-only, and everything a container writes goes to `/data`.
 
 ## Building
 
@@ -20,13 +23,13 @@ The build pins OSX-KVM to a commit with `ARG OSX_KVM_REF`. OSX-KVM supplies the 
 
 ## Testing
 
-`shellcheck rootfs/home/arch/OSX-KVM/*.sh` should stay clean.
+`shellcheck rootfs/opt/alcatraz/*.sh` should stay clean.
 
 To check a build boots without a display, run it headless with a QMP socket and take a screenshot:
 
 ```bash
 docker run -di --name alcatraz-test --device /dev/kvm \
-    -e EXTRA="-display none -qmp unix:/tmp/qmp.sock,server=on,wait=off" \
+    -e QEMU_ARGS="-display none -qmp unix:/tmp/qmp.sock,server=on,wait=off" \
     alcatraz
 
 # once `docker logs alcatraz-test` shows the qemu command line

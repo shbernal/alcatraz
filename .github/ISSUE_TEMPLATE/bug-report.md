@@ -8,7 +8,7 @@ labels: bug
 
 **CPU vendor and model:**
 
-**macOS version (`SHORTNAME`):**
+**macOS version (`MACOS_VERSION`):**
 
 **Full `docker run` command:**
 

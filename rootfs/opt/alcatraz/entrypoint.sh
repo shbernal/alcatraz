@@ -1,0 +1,72 @@
+#!/bin/bash
+# alcatraz: macOS in a container
+# https://github.com/shbernal/alcatraz
+# Hard fork of Docker-OSX by Sick.Codes (https://github.com/sickcodes/Docker-OSX)
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Container start: prepare everything under /data (disk, installer, firmware
+# variables, serials, bootdisk), optionally start sshd, then hand over to
+# launch.sh.
+set -euo pipefail
+
+sudo chown "$(id -u):$(id -g)" /data "${DISK_PATH}" "${INSTALLER_PATH}" 2>/dev/null || true
+
+if [[ "${BOOT_PICKER}" == true && ! -e "${INSTALLER_PATH}" ]]; then
+    printf '%s\n' "No installer at ${INSTALLER_PATH}, downloading macOS ${MACOS_VERSION}"
+    download="$(mktemp -d)"
+    (cd "${download}" && /opt/osx-kvm/fetch-macOS-v2.py --shortname="${MACOS_VERSION}")
+    compress=()
+    [[ "${INSTALLER_FORMAT}" == qcow2 ]] && compress=(-c)
+    qemu-img convert -p "${compress[@]}" -O "${INSTALLER_FORMAT}" "${download}/BaseSystem.dmg" "${INSTALLER_PATH}"
+    rm -rf "${download}"
+fi
+
+if [[ ! -e "${DISK_PATH}" ]]; then
+    qemu-img create -f "${DISK_FORMAT}" "${DISK_PATH}" "${DISK_SIZE}"
+fi
+
+# UEFI variables live next to the disk, so boot settings persist with it.
+if [[ ! -e /data/ovmf-vars.fd ]]; then
+    cp /opt/osx-kvm/OVMF_VARS-1920x1080.fd /data/ovmf-vars.fd
+fi
+
+# Serials passed in the environment win; otherwise /data/serials.env, created
+# first if SERIALS=random.
+if [[ -z "${SERIAL:-}" ]]; then
+    # shellcheck disable=SC2153 # SERIALS is set in the Dockerfile
+    if [[ "${SERIALS}" == random && ! -e /data/serials.env ]]; then
+        generate="$(mktemp -d)"
+        (cd "${generate}" && /opt/alcatraz/vendor/osx-serial-generator/generate-unique-machine-values.sh \
+            --count 1 --output-env /data/serials.env)
+        rm -rf "${generate}"
+        # WIDTH and HEIGHT stay settings, not part of the machine's identity.
+        sed -i '/^export \(WIDTH\|HEIGHT\)=/d' /data/serials.env
+    fi
+    if [[ -e /data/serials.env ]]; then
+        # shellcheck disable=SC1091
+        source /data/serials.env
+    fi
+fi
+
+if [[ -z "${BOOTDISK}" ]]; then
+    if [[ -n "${SERIAL:-}" || -e /data/config.plist ]]; then
+        if [[ -n "${SERIAL:-}" ]]; then
+            : "${DEVICE_MODEL:?SERIAL also needs DEVICE_MODEL}" \
+              "${BOARD_SERIAL:?SERIAL also needs BOARD_SERIAL}" \
+              "${UUID:?SERIAL also needs UUID}"
+        fi
+        BOOTDISK=/data/bootdisk.qcow2
+        /opt/alcatraz/build-bootdisk.sh "${BOOTDISK}"
+    elif [[ "${BOOT_PICKER}" == true ]]; then
+        BOOTDISK=/opt/osx-kvm/OpenCore/OpenCore.qcow2
+    else
+        BOOTDISK=/opt/alcatraz/nopicker.qcow2
+    fi
+    export BOOTDISK
+fi
+
+if [[ "${SSH}" == true ]]; then
+    /opt/alcatraz/sshd.sh
+fi
+
+exec /opt/alcatraz/launch.sh

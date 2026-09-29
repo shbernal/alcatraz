@@ -4,11 +4,14 @@
 # Hard fork of Docker-OSX by Sick.Codes (https://github.com/sickcodes/Docker-OSX)
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
-# Prints OSX-KVM's OpenCore config with the serials from the environment, if
-# set, and with the picker off if NOPICKER=true. Used for the nopicker bootdisk
-# and by GENERATE_UNIQUE and GENERATE_SPECIFIC unless MASTER_PLIST_URL is set.
+# Prints the OpenCore config for build-bootdisk.sh: /data/config.plist if it
+# exists, otherwise OSX-KVM's, with the serials and resolution from the
+# environment if SERIAL is set, and with the picker off if BOOT_PICKER=false.
 import os, plistlib, re, sys
-with open("/home/arch/OSX-KVM/OpenCore/config.plist", "rb") as f:
+path = "/data/config.plist"
+if not os.path.exists(path):
+    path = "/opt/osx-kvm/OpenCore/config.plist"
+with open(path, "rb") as f:
     config = plistlib.load(f)
 if os.environ.get("SERIAL"):
     generic = config["PlatformInfo"]["Generic"]
@@ -19,7 +22,7 @@ if os.environ.get("SERIAL"):
     generic["ROM"] = bytes.fromhex(os.environ["MAC_ADDRESS"].replace(":", ""))
     width, height = os.environ.get("WIDTH") or "1920", os.environ.get("HEIGHT") or "1080"
     config["UEFI"]["Output"]["Resolution"] = f"{width}x{height}@32"
-if os.environ.get("NOPICKER") == "true":
+if os.environ.get("BOOT_PICKER") == "false":
     config["Misc"]["Boot"]["ShowPicker"] = False
     config["Misc"]["Boot"]["Timeout"] = 0
     # only list APFS and HFS volumes: with every volume, the bootdisk's own EFI
@@ -28,7 +31,7 @@ if os.environ.get("NOPICKER") == "true":
 # the config names a kext that ships as MCEReporterDisabler.kext; without it
 # AppleIntelMCEReporter panics on iMacPro1,1 and MacPro models
 for kext in config["Kernel"]["Add"]:
-    if kext["BundlePath"] == "AppleMCEReporterDisabler.kext" and not os.path.exists("/home/arch/OSX-KVM/OpenCore/EFI/OC/Kexts/AppleMCEReporterDisabler.kext"):
+    if kext["BundlePath"] == "AppleMCEReporterDisabler.kext" and not os.path.exists("/opt/osx-kvm/OpenCore/EFI/OC/Kexts/AppleMCEReporterDisabler.kext"):
         kext["BundlePath"] = "MCEReporterDisabler.kext"
 # keep <data> on one line like the original, plistlib wraps it
 out = plistlib.dumps(config, sort_keys=False)

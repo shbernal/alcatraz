@@ -2,8 +2,8 @@
 
 # https://github.com/kraxel/imagefish
 # Vendored from https://github.com/sickcodes/osx-serial-generator at 908b3d6.
-# Takes EFI/, startup.nsh and resources/ from the current directory, which the
-# callers set to OSX-KVM, rather than from the script's own directory.
+# Takes EFI/, startup.nsh and resources/ from the current directory, which
+# build-bootdisk.sh sets up, rather than from the script's own directory.
 
 ######################################################################
 # defaults
