@@ -308,18 +308,18 @@ This is the fastest and easiest way to apply the patch.
 1. Mount your EFI partition using Clover Configurator or another EFI mounting tool
 2. Download the patch script:
    ```bash
-   curl -o apply_appleid_kernelpatch.py https://raw.githubusercontent.com/shbernal/alcatraz/main/scripts/apply_appleid_kernelpatch.py
+   curl -o apply-appleid-kernelpatch.py https://raw.githubusercontent.com/shbernal/alcatraz/main/tools/apply-appleid-kernelpatch.py
    ```
 3. Run the script with your `config.plist` file path:
    ```bash
-   python3 apply_appleid_kernelpatch.py /path/to/config.plist
+   python3 apply-appleid-kernelpatch.py /path/to/config.plist
    ```
 
-You can drag and drop the `config.plist` file into your terminal after typing `python3 apply_appleid_kernelpatch.py` for an easy path insertion.
+You can drag and drop the `config.plist` file into your terminal after typing `python3 apply-appleid-kernelpatch.py` for an easy path insertion.
 
 **Note**: If you encounter a "permission denied" error, run the command with `sudo`:
 ```bash
-sudo python3 apply_appleid_kernelpatch.py /path/to/config.plist
+sudo python3 apply-appleid-kernelpatch.py /path/to/config.plist
 ```
 
 ### Method 2: OCAT (OpenCore Auxiliary Tools)

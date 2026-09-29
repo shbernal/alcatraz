@@ -77,7 +77,7 @@ def add_kernel_patches(config_path):
 
 if __name__ == "__main__":
     if len(sys.argv) != 2:
-        print("Usage: python apply_appleid_kernelpatch.py /path/to/config.plist")
+        print("Usage: python apply-appleid-kernelpatch.py /path/to/config.plist")
         sys.exit(1)
     
     config_path = sys.argv[1]
