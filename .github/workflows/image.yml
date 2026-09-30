@@ -25,7 +25,7 @@ jobs:
       - name: Resolve the base image digest
         id: base
         run: |
-          digest="$(docker buildx imagetools inspect archlinux:base-devel --format '{{json .Manifest.Digest}}' | tr -d '"')"
+          digest="$(docker buildx imagetools inspect archlinux:base --format '{{json .Manifest.Digest}}' | tr -d '"')"
           echo "digest=${digest}" >> "$GITHUB_OUTPUT"
 
       - id: meta

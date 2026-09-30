@@ -35,12 +35,7 @@ fi
 if [[ -z "${SERIAL:-}" ]]; then
     # shellcheck disable=SC2153 # SERIALS is set in the Dockerfile
     if [[ "${SERIALS}" == random && ! -e /data/serials.env ]]; then
-        generate="$(mktemp -d)"
-        (cd "${generate}" && /opt/alcatraz/vendor/osx-serial-generator/generate-unique-machine-values.sh \
-            --count 1 --output-env /data/serials.env)
-        rm -rf "${generate}"
-        # WIDTH and HEIGHT stay settings, not part of the machine's identity.
-        sed -i '/^export \(WIDTH\|HEIGHT\)=/d' /data/serials.env
+        /opt/alcatraz/generate-serials.sh /data/serials.env
     fi
     if [[ -e /data/serials.env ]]; then
         # shellcheck disable=SC1091

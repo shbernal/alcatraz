@@ -14,7 +14,7 @@
 - Project rules
   - Naming and layout follow what makes sense in this project, not Docker-OSX. Renames that break users go in a major release with a row in the README's upgrade table.
   - Upstream OSX-KVM in `/opt/osx-kvm` stays as fetched; container state lives only in `/data`.
-  - GPL-3.0-or-later. `LICENSE` stays byte-for-byte; attribution lives in `CREDITS.md`. Vendored scripts in `rootfs/opt/alcatraz/vendor/` keep their own headers.
+  - GPL-3.0-or-later. `LICENSE` stays byte-for-byte; attribution lives in `CREDITS.md`.
   - `OSX_KVM_REF` bumps are deliberate and need a boot test.
 
 - Iron Laws

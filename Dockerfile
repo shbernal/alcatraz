@@ -17,12 +17,24 @@
 #           -v /tmp/.X11-unix:/tmp/.X11-unix -e "DISPLAY=${DISPLAY:-:0.0}" \
 #           ghcr.io/shbernal/alcatraz:latest
 
-FROM archlinux:base-devel
+# macserial generates serial numbers for SERIALS=random. OpenCorePkg's release
+# binary is static and falls back to a clock-seeded generator without glibc's
+# arc4random, so build it against the same glibc as the image.
+FROM archlinux:base-devel AS macserial
+ARG OPENCORE_VERSION=1.0.8
+ARG OPENCORE_SHA256=5f08f0a3af56666d52dba49411ee541f0121ccbe43ff83d477edab38d5073e86
+RUN curl -fsSL -o /opencore.tar.gz "https://github.com/acidanthera/OpenCorePkg/archive/refs/tags/${OPENCORE_VERSION}.tar.gz" \
+    && sha256sum -c <<< "${OPENCORE_SHA256}  /opencore.tar.gz" \
+    && tar -xzf /opencore.tar.gz -C / \
+    && make -C "/OpenCorePkg-${OPENCORE_VERSION}/Utilities/macserial" \
+    && install -Dm755 "/OpenCorePkg-${OPENCORE_VERSION}/Utilities/macserial/macserial" /usr/local/bin/macserial
 
-# archlinux:base-devel is a rolling tag. Pass the digest it resolved to, so a
+FROM archlinux:base
+
+# archlinux:base is a rolling tag. Pass the digest it resolved to, so a
 # broken rebuild can be traced to its base.
 ARG BASE_DIGEST
-LABEL org.opencontainers.image.base.name=docker.io/library/archlinux:base-devel
+LABEL org.opencontainers.image.base.name=docker.io/library/archlinux:base
 LABEL org.opencontainers.image.base.digest=${BASE_DIGEST}
 LABEL org.opencontainers.image.title=alcatraz
 LABEL org.opencontainers.image.description="macOS in a container: QEMU/KVM with OSX-KVM's OpenCore"
@@ -31,14 +43,14 @@ LABEL org.opencontainers.image.licenses=GPL-3.0-or-later
 LABEL org.opencontainers.image.url=https://github.com/shbernal/alcatraz
 LABEL org.opencontainers.image.documentation=https://github.com/shbernal/alcatraz#readme
 LABEL org.opencontainers.image.authors=shbernal
-# Blank the labels inherited from archlinux:base-devel; the release build sets them.
+# Blank the labels inherited from archlinux:base; the release build sets them.
 LABEL org.opencontainers.image.version="" org.opencontainers.image.revision="" org.opencontainers.image.created=""
 
 SHELL ["/bin/bash", "-c"]
 
 ARG PARALLEL_DOWNLOADS=30
 
-RUN perl -i -p -e s/^\#Color/Color$'\n'ParallelDownloads\ =\ ${PARALLEL_DOWNLOADS:=30}/g /etc/pacman.conf 
+RUN sed -i -e 's/^#Color/Color/' -e "s/^#\?ParallelDownloads.*/ParallelDownloads = ${PARALLEL_DOWNLOADS}/" /etc/pacman.conf
 
 RUN tee /etc/pacman.d/mirrorlist <<< 'Server = https://geo.mirror.pkgbuild.com/$repo/os/$arch' \
     && tee -a /etc/pacman.d/mirrorlist <<< 'Server = http://mirror.rackspace.com/archlinux/$repo/os/$arch' \
@@ -50,7 +62,7 @@ RUN pacman -Sy archlinux-keyring --noconfirm \
     && pacman-key --init \
     && pacman-key --populate archlinux
 
-RUN pacman -Syu git alsa-utils openssh --noconfirm \
+RUN pacman -Syu git alsa-utils openssh sudo python --noconfirm \
     && useradd -m alcatraz \
     && tee -a /etc/sudoers <<< 'alcatraz ALL=(ALL) NOPASSWD: ALL'
 
@@ -85,6 +97,7 @@ RUN git init -q /opt/osx-kvm \
     && git submodule update -q --init --depth 1
 
 COPY --chmod=755 rootfs/opt/alcatraz/ /opt/alcatraz/
+COPY --from=macserial /usr/local/bin/macserial /usr/local/bin/macserial
 
 # OSX-KVM only ships OpenCore.qcow2 (with the picker), so build the picker-less
 # bootdisk from the same config.
