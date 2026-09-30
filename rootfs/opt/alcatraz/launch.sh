@@ -8,9 +8,6 @@
 # defaults set in the Dockerfile; entrypoint.sh picks BOOTDISK.
 set -euxo pipefail
 
-sudo chown "$(id -u):$(id -g)" /dev/kvm 2>/dev/null || true
-sudo chown -R "$(id -u):$(id -g)" /dev/snd 2>/dev/null || true
-
 # RAM is in GB: RAM=max takes all of the host's memory, RAM=half half of it.
 mem_total_kb() { head -n1 /proc/meminfo | tr -dc '[:digit:]'; }
 case "${RAM}" in

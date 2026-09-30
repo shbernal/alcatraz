@@ -69,6 +69,8 @@ The container keeps everything it writes in `/data`. Mount a host directory ther
 | `config.plist` | Optional. An OpenCore config to boot with instead of OSX-KVM's. |
 | `bootdisk.qcow2` | The bootdisk built from your serial numbers or `config.plist`, rebuilt at every start. |
 
+The container starts as root, gives `/data`, `DISK_PATH` and `INSTALLER_PATH` to its `alcatraz` user (uid 1000), and runs QEMU as that user. A host directory owned by another user works, and ends up owned by uid 1000.
+
 Without the mount, `/data` is an anonymous Docker volume that `docker rm -v` deletes. To copy it out of such a container, see [Extract the virtual disk](FAQ.md#extract-the-virtual-disk).
 
 ### Skipping the picker
@@ -129,8 +131,6 @@ Every setting is an environment variable passed with `-e`.
 | `DISPLAY` | `:0.0` | X11 display for the QEMU window. |
 | `QEMU_ARGS` | | Extra QEMU arguments, split on spaces. |
 | `SSH` | `false` | `true` starts an SSH server in the container itself, separate from the guest's. |
-
-The image also sets `USER` for its own use.
 
 USB devices, extra disks and shared folders go through QEMU arguments in `QEMU_ARGS`. The [FAQ](FAQ.md#usb-devices) has recipes.
 

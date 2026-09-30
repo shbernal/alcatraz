@@ -46,55 +46,23 @@ LABEL org.opencontainers.image.authors=shbernal
 # Blank the labels inherited from archlinux:base; the release build sets them.
 LABEL org.opencontainers.image.version="" org.opencontainers.image.revision="" org.opencontainers.image.created=""
 
-SHELL ["/bin/bash", "-c"]
+# mtools builds the bootdisks (nopicker at build time, serials at run time).
+RUN pacman -Syu --noconfirm qemu-desktop edk2-ovmf mtools python openssh \
+    && yes | pacman -Scc \
+    && useradd -m -u 1000 alcatraz
 
-ARG PARALLEL_DOWNLOADS=30
-
-RUN sed -i -e 's/^#Color/Color/' -e "s/^#\?ParallelDownloads.*/ParallelDownloads = ${PARALLEL_DOWNLOADS}/" /etc/pacman.conf
-
-RUN tee /etc/pacman.d/mirrorlist <<< 'Server = https://geo.mirror.pkgbuild.com/$repo/os/$arch' \
-    && tee -a /etc/pacman.d/mirrorlist <<< 'Server = http://mirror.rackspace.com/archlinux/$repo/os/$arch' \
-    && tee -a /etc/pacman.d/mirrorlist <<< 'Server = https://mirror.rackspace.com/archlinux/$repo/os/$arch'
-
-# Fixes issue with invalid GPG keys: update the archlinux-keyring package to get the latest keys, then remove and regenerate gnupg keys
-RUN pacman -Sy archlinux-keyring --noconfirm \
-    && rm -rf /etc/pacman.d/gnupg \
-    && pacman-key --init \
-    && pacman-key --populate archlinux
-
-RUN pacman -Syu git alsa-utils openssh sudo python --noconfirm \
-    && useradd -m alcatraz \
-    && tee -a /etc/sudoers <<< 'alcatraz ALL=(ALL) NOPASSWD: ALL'
-
-# allow ssh to container
+# The container's own sshd, for SSH=true.
 RUN mkdir -p -m 700 /root/.ssh \
     && touch /root/.ssh/authorized_keys \
-    && chmod 644 /root/.ssh/authorized_keys
-
-WORKDIR /etc/ssh
-RUN tee -a sshd_config <<< 'AllowTcpForwarding yes' \
-    && tee -a sshd_config <<< 'PermitTunnel yes' \
-    && tee -a sshd_config <<< 'X11Forwarding yes' \
-    && tee -a sshd_config <<< 'PasswordAuthentication yes' \
-    && tee -a sshd_config <<< 'PermitRootLogin yes' \
-    && tee -a sshd_config <<< 'PubkeyAuthentication yes' \
-    && tee -a sshd_config <<< 'HostKey /etc/ssh/ssh_host_rsa_key' \
-    && tee -a sshd_config <<< 'HostKey /etc/ssh/ssh_host_ecdsa_key' \
-    && tee -a sshd_config <<< 'HostKey /etc/ssh/ssh_host_ed25519_key'
-
-# mtools builds the bootdisks (nopicker at build time, serials at run time).
-RUN pacman -Syu bc qemu-desktop edk2-ovmf wget mtools --overwrite '*' --noconfirm \
-    && yes | pacman -Scc
+    && chmod 644 /root/.ssh/authorized_keys \
+    && printf '%s\n' 'AllowTcpForwarding yes' 'PermitTunnel yes' 'X11Forwarding yes' \
+        'PasswordAuthentication yes' 'PermitRootLogin yes' 'PubkeyAuthentication yes' >> /etc/ssh/sshd_config
 
 # OSX-KVM provides the firmware, the OpenCore bootdisk and its config, and the
 # macOS download script. It stays as fetched. Bump the commit on purpose and
 # test a boot.
 ARG OSX_KVM_REF=4c378a4b5e0b219783683012bec680325eb40719
-RUN git init -q /opt/osx-kvm \
-    && cd /opt/osx-kvm \
-    && git fetch -q --depth 1 https://github.com/kholia/OSX-KVM.git "${OSX_KVM_REF}" \
-    && git checkout -q FETCH_HEAD \
-    && git submodule update -q --init --depth 1
+ADD https://github.com/kholia/OSX-KVM.git#${OSX_KVM_REF} /opt/osx-kvm
 
 COPY --chmod=755 rootfs/opt/alcatraz/ /opt/alcatraz/
 COPY --from=macserial /usr/local/bin/macserial /usr/local/bin/macserial
@@ -106,9 +74,7 @@ RUN BOOT_PICKER=false /opt/alcatraz/build-bootdisk.sh /opt/alcatraz/nopicker.qco
 # Everything a container writes lives in /data: see README.md.
 RUN install -d -o alcatraz -g alcatraz /data
 
-USER alcatraz
 WORKDIR /data
-ENV USER=alcatraz
 
 # Runtime settings, documented in README.md.
 ENV MACOS_VERSION=tahoe
