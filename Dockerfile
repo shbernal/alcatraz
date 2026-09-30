@@ -46,7 +46,7 @@ LABEL org.opencontainers.image.authors=shbernal
 # Blank the labels inherited from archlinux:base; the release build sets them.
 LABEL org.opencontainers.image.version="" org.opencontainers.image.revision="" org.opencontainers.image.created=""
 
-# mtools builds the bootdisks (nopicker at build time, serials at run time).
+# mtools builds the bootdisks.
 RUN pacman -Syu --noconfirm qemu-desktop edk2-ovmf mtools python openssh \
     && yes | pacman -Scc \
     && useradd -m -u 1000 alcatraz
@@ -67,9 +67,10 @@ ADD https://github.com/kholia/OSX-KVM.git#${OSX_KVM_REF} /opt/osx-kvm
 COPY --chmod=755 rootfs/opt/alcatraz/ /opt/alcatraz/
 COPY --from=macserial /usr/local/bin/macserial /usr/local/bin/macserial
 
-# OSX-KVM only ships OpenCore.qcow2 (with the picker), so build the picker-less
-# bootdisk from the same config.
-RUN BOOT_PICKER=false /opt/alcatraz/build-bootdisk.sh /opt/alcatraz/nopicker.qcow2
+# The default bootdisks, with and without the picker. OSX-KVM's own
+# OpenCore.qcow2 leaves the resolution to OVMF, which boots at 1280x800.
+RUN /opt/alcatraz/build-bootdisk.sh /opt/alcatraz/picker.qcow2 \
+    && BOOT_PICKER=false /opt/alcatraz/build-bootdisk.sh /opt/alcatraz/nopicker.qcow2
 
 # Everything a container writes lives in /data: see README.md.
 RUN install -d -o alcatraz -g alcatraz /data

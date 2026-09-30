@@ -5,9 +5,9 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
 # Prints the OpenCore config for build-bootdisk.sh: /data/config.plist if it
-# exists, otherwise OSX-KVM's, with the serials and resolution from the
-# environment if SERIAL is set, with the picker off if BOOT_PICKER=false, and
-# with the hv_vmm_present kernel patch if APPLEID_PATCH=true.
+# exists, otherwise OSX-KVM's, with the serials from the environment if SERIAL
+# is set, the resolution from WIDTH and HEIGHT, the picker off if
+# BOOT_PICKER=false, and the hv_vmm_present kernel patch if APPLEID_PATCH=true.
 import os, plistlib, re, sys
 path = "/data/config.plist"
 if not os.path.exists(path):
@@ -21,8 +21,9 @@ if os.environ.get("SERIAL"):
     generic["MLB"] = os.environ["BOARD_SERIAL"]
     generic["SystemUUID"] = os.environ["UUID"]
     generic["ROM"] = bytes.fromhex(os.environ["MAC_ADDRESS"].replace(":", ""))
-    width, height = os.environ.get("WIDTH") or "1920", os.environ.get("HEIGHT") or "1080"
-    config["UEFI"]["Output"]["Resolution"] = f"{width}x{height}@32"
+# OSX-KVM leaves the resolution to OVMF, which boots at 1280x800
+width, height = os.environ.get("WIDTH") or "1920", os.environ.get("HEIGHT") or "1080"
+config["UEFI"]["Output"]["Resolution"] = f"{width}x{height}@32"
 if os.environ.get("BOOT_PICKER") == "false":
     config["Misc"]["Boot"]["ShowPicker"] = False
     config["Misc"]["Boot"]["Timeout"] = 0

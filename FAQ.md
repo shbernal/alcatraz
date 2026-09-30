@@ -12,10 +12,10 @@ Sick.Codes wrote a [deeper dive into the subject](https://sick.codes/is-hackinto
 
 ### What does alcatraz do?
 
-It runs a macOS virtual machine under [Docker](https://en.wikipedia.org/wiki/Docker_(software)). The [Dockerfile](Dockerfile) builds an Arch Linux image with QEMU, OVMF firmware, a pinned copy of [OSX-KVM](https://github.com/kholia/OSX-KVM) and a second OpenCore bootdisk with the picker turned off. When a container starts, [entrypoint.sh](rootfs/opt/alcatraz/entrypoint.sh):
+It runs a macOS virtual machine under [Docker](https://en.wikipedia.org/wiki/Docker_(software)). The [Dockerfile](Dockerfile) builds an Arch Linux image with QEMU, OVMF firmware, a pinned copy of [OSX-KVM](https://github.com/kholia/OSX-KVM) and two OpenCore bootdisks built from its config, with and without the picker. When a container starts, [entrypoint.sh](rootfs/opt/alcatraz/entrypoint.sh):
 
 1. downloads the macOS recovery image and creates an empty disk in `/data`, if they're missing
-2. builds a bootdisk with your serial numbers, `config.plist` or `APPLEID_PATCH`, if there are any
+2. builds a bootdisk with your serial numbers, `config.plist`, `APPLEID_PATCH` or resolution, if you set any
 3. starts QEMU through [launch.sh](rootfs/opt/alcatraz/launch.sh)
 
 ### Why Docker?

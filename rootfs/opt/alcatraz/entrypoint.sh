@@ -52,8 +52,15 @@ if [[ -z "${SERIAL:-}" ]]; then
     fi
 fi
 
+# The prebuilt bootdisks carry OSX-KVM's config at 1920x1080; anything else
+# needs a bootdisk of its own.
+custom_bootdisk() {
+    [[ -n "${SERIAL:-}" || -e /data/config.plist || "${APPLEID_PATCH}" == true ||
+       "${WIDTH}x${HEIGHT}" != 1920x1080 ]]
+}
+
 if [[ -z "${BOOTDISK}" ]]; then
-    if [[ -n "${SERIAL:-}" || -e /data/config.plist || "${APPLEID_PATCH}" == true ]]; then
+    if custom_bootdisk; then
         if [[ -n "${SERIAL:-}" ]]; then
             : "${DEVICE_MODEL:?SERIAL also needs DEVICE_MODEL}" \
               "${BOARD_SERIAL:?SERIAL also needs BOARD_SERIAL}" \
@@ -62,7 +69,7 @@ if [[ -z "${BOOTDISK}" ]]; then
         BOOTDISK=/data/bootdisk.qcow2
         /opt/alcatraz/build-bootdisk.sh "${BOOTDISK}"
     elif [[ "${BOOT_PICKER}" == true ]]; then
-        BOOTDISK=/opt/osx-kvm/OpenCore/OpenCore.qcow2
+        BOOTDISK=/opt/alcatraz/picker.qcow2
     else
         BOOTDISK=/opt/alcatraz/nopicker.qcow2
     fi

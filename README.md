@@ -64,10 +64,10 @@ The container keeps everything it writes in `/data`. Mount a host directory ther
 |---|---|
 | `disk.img` | The macOS disk, created on first start. |
 | `installer.img` | The recovery image, downloaded on first start. Delete it to download another `MACOS_VERSION`. |
-| `ovmf-vars.fd` | UEFI variables, such as boot order and resolution. |
+| `ovmf-vars.fd` | UEFI variables, such as boot order. |
 | `serials.env` | Your serial numbers, see [Serial numbers](#serial-numbers). |
 | `config.plist` | Optional. An OpenCore config to boot with instead of OSX-KVM's. |
-| `bootdisk.qcow2` | The bootdisk built from your serial numbers, `config.plist` or `APPLEID_PATCH`, rebuilt at every start. |
+| `bootdisk.qcow2` | The bootdisk built from your serial numbers, `config.plist`, `APPLEID_PATCH` or resolution, rebuilt at every start. |
 
 The container starts as root, gives `/data`, `DISK_PATH` and `INSTALLER_PATH` to its `alcatraz` user (uid 1000), and runs QEMU as that user. A host directory owned by another user works, and ends up owned by uid 1000.
 
@@ -122,8 +122,8 @@ Every setting is an environment variable passed with `-e`.
 | `UUID` | | System UUID. |
 | `MAC_ADDRESS` | `52:54:00:09:49:17` | Guest MAC address, also the ROM with serial numbers. |
 | `APPLEID_PATCH` | `false` | `true` hides the VM from Apple ID, iMessage and iCloud with a kernel patch. See [Apple ID login](FAQ.md#apple-id-login). |
-| `WIDTH` | `1920` | Screen width. Only applies to a bootdisk built from serial numbers. |
-| `HEIGHT` | `1080` | Screen height. Only applies to a bootdisk built from serial numbers. |
+| `WIDTH` | `1920` | Screen width. |
+| `HEIGHT` | `1080` | Screen height. A size OVMF doesn't offer, such as `1234x567`, falls back to 1280x800. |
 | `NETWORKING` | `virtio-net-pci` | QEMU network device. `vmxnet3` for High Sierra and older, `e1000-82545em` if the network is slow. |
 | `INTERNAL_SSH_PORT` | `10022` | Container port forwarded to guest port 22. |
 | `SCREEN_SHARE_PORT` | `5900` | Container port forwarded to guest port 5900. |
@@ -151,7 +151,7 @@ The stock bootdisk carries OSX-KVM's serial numbers, the same in every install. 
 
 Check the serial number inside macOS with `ioreg -l | grep IOPlatformSerialNumber` before you sign in to anything.
 
-The values go into OSX-KVM's `config.plist`, or into `/data/config.plist` if you put one there. `WIDTH` and `HEIGHT` live in the same file, so a resolution change also needs serial numbers.
+The values go into OSX-KVM's `config.plist`, or into `/data/config.plist` if you put one there.
 
 ## Upgrading from 1.x or Docker-OSX
 

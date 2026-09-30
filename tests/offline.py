@@ -56,13 +56,14 @@ check("the MCE reporter kext in the config exists in the EFI",
       all(os.path.exists(f"{kexts}/{k['BundlePath']}") for k in stock["Kernel"]["Add"] if "MCE" in k["BundlePath"]))
 
 serials = config(DEVICE_MODEL="iMacPro1,1", SERIAL="C02TW0WAHX87", BOARD_SERIAL="C027251024NJG36UE",
-                 UUID="5CCB366D-9118-4C61-A00A-E5BAF3BED451", MAC_ADDRESS="A8:5C:2C:9A:46:2F",
-                 WIDTH="1280", HEIGHT="720")
+                 UUID="5CCB366D-9118-4C61-A00A-E5BAF3BED451", MAC_ADDRESS="A8:5C:2C:9A:46:2F")
 generic = serials["PlatformInfo"]["Generic"]
 check("serials go into PlatformInfo", (generic["SystemProductName"], generic["SystemSerialNumber"], generic["MLB"],
       generic["SystemUUID"]) == ("iMacPro1,1", "C02TW0WAHX87", "C027251024NJG36UE", "5CCB366D-9118-4C61-A00A-E5BAF3BED451"))
 check("MAC_ADDRESS becomes the ROM", generic["ROM"] == bytes.fromhex("A85C2C9A462F"))
-check("WIDTH and HEIGHT set the resolution", serials["UEFI"]["Output"]["Resolution"] == "1280x720@32")
+check("the resolution defaults to 1920x1080", stock["UEFI"]["Output"]["Resolution"] == "1920x1080@32")
+check("WIDTH and HEIGHT set the resolution without serials",
+      config(WIDTH="1280", HEIGHT="720")["UEFI"]["Output"]["Resolution"] == "1280x720@32")
 
 nopicker = config(BOOT_PICKER="false")
 check("BOOT_PICKER=false hides the picker",

@@ -4,8 +4,8 @@ Issues and pull requests are welcome, including fully AI-generated ones. Say whi
 
 ## Layout
 
-- [Dockerfile](Dockerfile) builds the image: Arch Linux, QEMU, OVMF, a pinned OSX-KVM in `/opt/osx-kvm`, `macserial` built from a pinned OpenCorePkg release, and the no-picker bootdisk.
-- [rootfs/opt/alcatraz](rootfs/opt/alcatraz) holds the scripts the container runs, at the path they take in the image. `entrypoint.sh` starts as root, hands `/data` and the KVM and sound devices to the `alcatraz` user, and continues as that user: it prepares `/data` and the bootdisk and hands over to `launch.sh`, which starts QEMU. `build-bootdisk.sh` and `opencore-config.py` build bootdisks, at build time and at start for serial numbers, `config.plist` or `APPLEID_PATCH`: a GPT disk with one FAT EFI partition, written with mtools. `generate-serials.sh` writes `/data/serials.env` for `SERIALS=random`, offline.
+- [Dockerfile](Dockerfile) builds the image: Arch Linux, QEMU, OVMF, a pinned OSX-KVM in `/opt/osx-kvm`, `macserial` built from a pinned OpenCorePkg release, and the default bootdisks.
+- [rootfs/opt/alcatraz](rootfs/opt/alcatraz) holds the scripts the container runs, at the path they take in the image. `entrypoint.sh` starts as root, hands `/data` and the KVM and sound devices to the `alcatraz` user, and continues as that user: it prepares `/data` and the bootdisk and hands over to `launch.sh`, which starts QEMU. `build-bootdisk.sh` and `opencore-config.py` build bootdisks, at build time and at start for serial numbers, `config.plist`, `APPLEID_PATCH` or a resolution: a GPT disk with one FAT EFI partition, written with mtools. `generate-serials.sh` writes `/data/serials.env` for `SERIALS=random`, offline.
 - [tests](tests) holds the checks CI runs, see [Testing](#testing).
 
 In the image, `/opt/osx-kvm` stays as fetched, `/opt/alcatraz` is read-only, and everything a container writes goes to `/data`.

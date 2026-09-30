@@ -5,7 +5,7 @@
 #
 # build-bootdisk.sh <output.qcow2>
 # Builds an OpenCore bootdisk from OSX-KVM's EFI and opencore-config.py's
-# config, which takes the serials, resolution and BOOT_PICKER from the environment.
+# config, which takes its settings from the environment.
 # The disk is GPT with a single FAT EFI system partition, written with mtools,
 # so it needs neither root nor loop devices.
 set -euo pipefail
