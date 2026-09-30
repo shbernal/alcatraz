@@ -69,11 +69,22 @@ check("BOOT_PICKER=false hides the picker",
       (nopicker["Misc"]["Boot"]["ShowPicker"], nopicker["Misc"]["Boot"]["Timeout"]) == (False, 0))
 check("BOOT_PICKER=false only scans APFS and HFS", nopicker["Misc"]["Security"]["ScanPolicy"] == 0x301)
 
+def hv_vmm_patches(config):
+    return [p for p in config["Kernel"]["Patch"] if b"hv_vmm_present" in p["Find"] + p["Replace"]]
+
+check("no hv_vmm_present patch by default", not hv_vmm_patches(stock))
+patched = config(APPLEID_PATCH="true")
+check("APPLEID_PATCH=true adds both hv_vmm_present patches", len(hv_vmm_patches(patched)) == 2)
+
 custom = dict(upstream, alcatraz_test=True)
 with open(CUSTOM, "wb") as f:
     plistlib.dump(custom, f)
 try:
     check("/data/config.plist replaces OSX-KVM's", config().get("alcatraz_test") is True)
+    with open(CUSTOM, "wb") as f:
+        plistlib.dump(patched, f)
+    check("APPLEID_PATCH=true doesn't repeat patches already in /data/config.plist",
+          len(hv_vmm_patches(config(APPLEID_PATCH="true"))) == 2)
 finally:
     os.remove(CUSTOM)
 

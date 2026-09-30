@@ -53,7 +53,7 @@ if [[ -z "${SERIAL:-}" ]]; then
 fi
 
 if [[ -z "${BOOTDISK}" ]]; then
-    if [[ -n "${SERIAL:-}" || -e /data/config.plist ]]; then
+    if [[ -n "${SERIAL:-}" || -e /data/config.plist || "${APPLEID_PATCH}" == true ]]; then
         if [[ -n "${SERIAL:-}" ]]; then
             : "${DEVICE_MODEL:?SERIAL also needs DEVICE_MODEL}" \
               "${BOARD_SERIAL:?SERIAL also needs BOARD_SERIAL}" \

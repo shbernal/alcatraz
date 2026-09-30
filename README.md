@@ -67,7 +67,7 @@ The container keeps everything it writes in `/data`. Mount a host directory ther
 | `ovmf-vars.fd` | UEFI variables, such as boot order and resolution. |
 | `serials.env` | Your serial numbers, see [Serial numbers](#serial-numbers). |
 | `config.plist` | Optional. An OpenCore config to boot with instead of OSX-KVM's. |
-| `bootdisk.qcow2` | The bootdisk built from your serial numbers or `config.plist`, rebuilt at every start. |
+| `bootdisk.qcow2` | The bootdisk built from your serial numbers, `config.plist` or `APPLEID_PATCH`, rebuilt at every start. |
 
 The container starts as root, gives `/data`, `DISK_PATH` and `INSTALLER_PATH` to its `alcatraz` user (uid 1000), and runs QEMU as that user. A host directory owned by another user works, and ends up owned by uid 1000.
 
@@ -121,6 +121,7 @@ Every setting is an environment variable passed with `-e`.
 | `BOARD_SERIAL` | | Board serial number (MLB). |
 | `UUID` | | System UUID. |
 | `MAC_ADDRESS` | `52:54:00:09:49:17` | Guest MAC address, also the ROM with serial numbers. |
+| `APPLEID_PATCH` | `false` | `true` hides the VM from Apple ID, iMessage and iCloud with a kernel patch. See [Apple ID login](FAQ.md#apple-id-login). |
 | `WIDTH` | `1920` | Screen width. Only applies to a bootdisk built from serial numbers. |
 | `HEIGHT` | `1080` | Screen height. Only applies to a bootdisk built from serial numbers. |
 | `NETWORKING` | `virtio-net-pci` | QEMU network device. `vmxnet3` for High Sierra and older, `e1000-82545em` if the network is slow. |

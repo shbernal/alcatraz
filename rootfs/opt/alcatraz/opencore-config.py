@@ -6,7 +6,8 @@
 #
 # Prints the OpenCore config for build-bootdisk.sh: /data/config.plist if it
 # exists, otherwise OSX-KVM's, with the serials and resolution from the
-# environment if SERIAL is set, and with the picker off if BOOT_PICKER=false.
+# environment if SERIAL is set, with the picker off if BOOT_PICKER=false, and
+# with the hv_vmm_present kernel patch if APPLEID_PATCH=true.
 import os, plistlib, re, sys
 path = "/data/config.plist"
 if not os.path.exists(path):
@@ -28,6 +29,21 @@ if os.environ.get("BOOT_PICKER") == "false":
     # only list APFS and HFS volumes: with every volume, the bootdisk's own EFI
     # partition comes first, fails to boot, and OpenCore shows the picker anyway
     config["Misc"]["Security"]["ScanPolicy"] = 0x1 | 0x100 | 0x200
+# swap the kernel's hv_vmm_present sysctl name with hibernatecount's, so macOS
+# reads 0 there and Apple services don't see a VM (from
+# https://forum.proxmox.com/threads/anyone-can-make-bluetooth-work-on-sonoma.153301/#post-697832)
+if os.environ.get("APPLEID_PATCH") == "true":
+    patches = config["Kernel"]["Patch"]
+    for part, minkernel, find, replace in (
+        (1, "20.4.0", b"hibernatehidready\0hibernatecount\0", b"hibernatehidready\0hv_vmm_present\0"),
+        (2, "22.0.0", b"boot session UUID\0hv_vmm_present\0", b"boot session UUID\0hibernatecount\0"),
+    ):
+        if not any(p.get("Find") == find and p.get("Replace") == replace for p in patches):
+            patches.append({
+                "Arch": "x86_64", "Base": "", "Comment": f"APPLEID_PATCH {part}/2: kern.hv_vmm_present=0",
+                "Count": 1, "Enabled": True, "Find": find, "Identifier": "kernel", "Limit": 0, "Mask": b"",
+                "MaxKernel": "", "MinKernel": minkernel, "Replace": replace, "ReplaceMask": b"", "Skip": 0,
+            })
 # the config names a kext that ships as MCEReporterDisabler.kext; without it
 # AppleIntelMCEReporter panics on iMacPro1,1 and MacPro models
 for kext in config["Kernel"]["Add"]:
