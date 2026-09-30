@@ -138,7 +138,7 @@ USB devices, extra disks and shared folders go through QEMU arguments in `QEMU_A
 
 The stock bootdisk carries OSX-KVM's serial numbers, the same in every install. iMessage and iCloud need your own.
 
-`-e SERIALS=random` generates a set into `/data/serials.env` on first start. From then on, every start builds a bootdisk from that file, which adds about 30 seconds, whether `SERIALS=random` is still set or not. To use serial numbers you already have, write them to `serials.env` yourself or pass them directly, which takes precedence over the file:
+`-e SERIALS=random` generates a set into `/data/serials.env` on first start. From then on, every start builds a bootdisk from that file, whether `SERIALS=random` is still set or not. To use serial numbers you already have, write them to `serials.env` yourself or pass them directly, which takes precedence over the file:
 
 ```bash
     -e DEVICE_MODEL="iMacPro1,1" \

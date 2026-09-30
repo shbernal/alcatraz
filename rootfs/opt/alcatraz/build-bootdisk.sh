@@ -6,15 +6,28 @@
 # build-bootdisk.sh <output.qcow2>
 # Builds an OpenCore bootdisk from OSX-KVM's EFI and opencore-config.py's
 # config, which takes the serials, resolution and BOOT_PICKER from the environment.
+# The disk is GPT with a single FAT EFI system partition, written with mtools,
+# so it needs neither root nor loop devices.
 set -euo pipefail
 output="$(realpath -m "$1")"
 
 work="$(mktemp -d)"
 trap 'rm -rf "${work}"' EXIT
-cp -a /opt/osx-kvm/OpenCore/EFI "${work}/"
-ln -s /opt/osx-kvm/resources "${work}/resources"
-echo 'fs0:\EFI\BOOT\BOOTx64.efi' > "${work}/startup.nsh"
-/opt/alcatraz/opencore-config.py > "${work}/config.plist"
+esp="${work}/esp"
+mkdir -p "${esp}"
+cp -a /opt/osx-kvm/OpenCore/EFI "${esp}/"
+rm -rf "${esp}/EFI/OC/Resources"
+cp -a /opt/osx-kvm/resources/OcBinaryData/Resources "${esp}/EFI/OC/"
+/opt/alcatraz/opencore-config.py > "${esp}/EFI/OC/config.plist"
+echo 'fs0:\EFI\BOOT\BOOTx64.efi' > "${esp}/startup.nsh"
 
-cd "${work}"
-/opt/alcatraz/vendor/osx-serial-generator/opencore-image-ng.sh --cfg ./config.plist --img "${output}"
+# 1 MiB of alignment, a 254 MiB ESP, and room for the backup GPT.
+raw="${work}/bootdisk.raw"
+truncate -s 256M "${raw}"
+sfdisk -q "${raw}" <<< 'label: gpt
+start=1MiB, size=254MiB, type=uefi, name="EFI"'
+export MTOOLS_SKIP_CHECK=1
+mformat -i "${raw}@@1M" -T $((254 * 2048)) -h 64 -s 32 -v EFI ::
+mcopy -s -Q -i "${raw}@@1M" "${esp}"/* ::/
+
+qemu-img convert -O qcow2 "${raw}" "${output}"

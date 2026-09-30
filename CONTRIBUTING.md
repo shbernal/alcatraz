@@ -5,8 +5,8 @@ Issues and pull requests are welcome, including fully AI-generated ones. Say whi
 ## Layout
 
 - [Dockerfile](Dockerfile) builds the image: Arch Linux, QEMU, OVMF, a pinned OSX-KVM in `/opt/osx-kvm`, and the no-picker bootdisk.
-- [rootfs/opt/alcatraz](rootfs/opt/alcatraz) holds the scripts the container runs, at the path they take in the image. `entrypoint.sh` prepares `/data` and the bootdisk and hands over to `launch.sh`, which starts QEMU. `build-bootdisk.sh` and `opencore-config.py` build bootdisks, at build time and for serial numbers.
-- `vendor/osx-serial-generator/` holds scripts from [osx-serial-generator](https://github.com/sickcodes/osx-serial-generator) at 908b3d6, with the changes noted in their git history.
+- [rootfs/opt/alcatraz](rootfs/opt/alcatraz) holds the scripts the container runs, at the path they take in the image. `entrypoint.sh` prepares `/data` and the bootdisk and hands over to `launch.sh`, which starts QEMU. `build-bootdisk.sh` and `opencore-config.py` build bootdisks, at build time and for serial numbers: a GPT disk with one FAT EFI partition, written with mtools.
+- `vendor/osx-serial-generator/` holds the serial generator from [osx-serial-generator](https://github.com/sickcodes/osx-serial-generator) at 908b3d6, with the changes noted in its git history.
 - [tools](tools) holds scripts users run on their own machines, not in the image.
 - [tests](tests) holds the checks CI runs, see [Testing](#testing).
 

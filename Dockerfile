@@ -70,14 +70,8 @@ RUN tee -a sshd_config <<< 'AllowTcpForwarding yes' \
     && tee -a sshd_config <<< 'HostKey /etc/ssh/ssh_host_ecdsa_key' \
     && tee -a sshd_config <<< 'HostKey /etc/ssh/ssh_host_ed25519_key'
 
-RUN pacman -Syu bc qemu-desktop edk2-ovmf wget --overwrite '*' --noconfirm \
-    && yes | pacman -Scc
-
-# libguestfs builds the bootdisks (nopicker at build time, serials at run time).
-# Its appliance needs a kernel, which is most of this layer's size.
-RUN pacman -Syu linux linux-headers archlinux-keyring guestfs-tools mkinitcpio --noconfirm \
-    && libguestfs-test-tool \
-    && rm -rf /var/tmp/.guestfs-* \
+# mtools builds the bootdisks (nopicker at build time, serials at run time).
+RUN pacman -Syu bc qemu-desktop edk2-ovmf wget mtools --overwrite '*' --noconfirm \
     && yes | pacman -Scc
 
 # OSX-KVM provides the firmware, the OpenCore bootdisk and its config, and the
@@ -94,8 +88,7 @@ COPY --chmod=755 rootfs/opt/alcatraz/ /opt/alcatraz/
 
 # OSX-KVM only ships OpenCore.qcow2 (with the picker), so build the picker-less
 # bootdisk from the same config.
-RUN BOOT_PICKER=false /opt/alcatraz/build-bootdisk.sh /opt/alcatraz/nopicker.qcow2 \
-    && rm -rf /var/tmp/.guestfs-*
+RUN BOOT_PICKER=false /opt/alcatraz/build-bootdisk.sh /opt/alcatraz/nopicker.qcow2
 
 # Everything a container writes lives in /data: see README.md.
 RUN install -d -o alcatraz -g alcatraz /data
