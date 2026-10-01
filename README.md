@@ -12,13 +12,13 @@ Read [Is this legal?](FAQ.md#is-this-legal) before you use it.
 
 ## Requirements
 
-- A Linux x86_64 host with KVM. `/dev/kvm` must exist, which needs virtualization turned on in the BIOS.
+- A Linux x86_64 host with KVM. `/dev/kvm` must exist, which needs virtualization turned on in the BIOS. Tested on Intel. On AMD, CI boots as far as the OpenCore picker; installing macOS there is untested.
 - Docker, with your user in the `docker` group.
 - An X11 display for the QEMU window. Xwayland works.
 - About 60 GB free under `/var/lib/docker` for a fresh install, more with Xcode.
 - 4 GB of RAM for the guest by default, plus what the host needs.
 
-Windows 11 works through WSL2 with nested virtualization. See [Can I run it on Windows?](FAQ.md#run-on-windows).
+Users report that Windows 11 works through WSL2 with nested virtualization; it is untested here. See [Can I run it on Windows?](FAQ.md#run-on-windows).
 
 ## Quick start
 
@@ -34,17 +34,19 @@ docker run -it \
 
 This installs macOS Tahoe, with the disk in `./mac`. To install another version, add `-e MACOS_VERSION=<name>`:
 
-| `MACOS_VERSION` | macOS |
-|---|---|
-| `high-sierra` | High Sierra (10.13) |
-| `mojave` | Mojave (10.14) |
-| `catalina` | Catalina (10.15) |
-| `big-sur` | Big Sur (11) |
-| `monterey` | Monterey (12) |
-| `ventura` | Ventura (13) |
-| `sonoma` | Sonoma (14) |
-| `sequoia` | Sequoia (15) |
-| `tahoe` | Tahoe (26), the default |
+| `MACOS_VERSION` | macOS | Tested |
+|---|---|---|
+| `high-sierra` | High Sierra (10.13) | |
+| `mojave` | Mojave (10.14) | |
+| `catalina` | Catalina (10.15) | |
+| `big-sur` | Big Sur (11) | |
+| `monterey` | Monterey (12) | |
+| `ventura` | Ventura (13) | |
+| `sonoma` | Sonoma (14) | |
+| `sequoia` | Sequoia (15) | |
+| `tahoe` | Tahoe (26), the default | yes |
+
+Tested versions were installed from scratch and booted with the current OSX-KVM commit. The others are best effort: they worked with Docker-OSX but haven't been installed with the current commit. Tahoe is the last macOS for Intel Macs, so no newer version will run.
 
 High Sierra and older also need `-e NETWORKING=vmxnet3`.
 

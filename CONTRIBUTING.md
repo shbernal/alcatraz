@@ -16,7 +16,7 @@ In the image, `/opt/osx-kvm` stays as fetched, `/opt/alcatraz` is read-only, and
 docker build -t alcatraz .
 ```
 
-The build pins OSX-KVM to a commit with `ARG OSX_KVM_REF`. OSX-KVM supplies the firmware, the OpenCore bootdisk and its config, and the recovery download script, so a bump can break booting. After changing the commit, build, then boot an existing disk and a fresh install.
+The build pins OSX-KVM to a commit with `ARG OSX_KVM_REF`. OSX-KVM supplies the firmware, the OpenCore bootdisk and its config, and the recovery download script, so a bump can break booting. After changing the commit, build, boot an existing disk, and install Tahoe and Sequoia from scratch, the versions the README marks as tested. A version that fails loses its mark; one you test gains it.
 
 `archlinux:base` is not pinned. Pass its digest as `--build-arg BASE_DIGEST=sha256:…` to record it in the `org.opencontainers.image.base.digest` label; the release workflow does this.
 
@@ -36,4 +36,4 @@ tests/smoke-test.sh alcatraz -e BOOT_PICKER=false
 tests/smoke-test.sh alcatraz -e DEVICE_MODEL=iMacPro1,1 -e SERIAL=… -e BOARD_SERIAL=… -e UUID=…
 ```
 
-The smoke test needs `/dev/kvm` and stops at the picker: it downloads no recovery image and installs nothing. Installing and booting macOS stays a manual test, done for `OSX_KVM_REF` bumps.
+The smoke test needs `/dev/kvm` and stops at the picker: it downloads no recovery image and installs nothing. Installing and booting macOS stays a manual test, done for `OSX_KVM_REF` bumps. Give the guest `RAM=8` for installs.

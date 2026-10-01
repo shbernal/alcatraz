@@ -38,10 +38,10 @@ Yes, on a Linux host. See [USB devices](#usb-devices). On Windows it may or may 
 
 ### ...run CI/CD processes with it?
 
-Maybe, but there are several reasons not to:
-1. There are [legal considerations](#is-this-legal).
-2. Hosted CI runners rarely offer nested virtualization, so there's no KVM for alcatraz to use.
-3. Your own macOS runners, on real or virtual Mac hardware, are almost always the better fit for macOS CI.
+Technically yes, but don't:
+1. Hosted CI runners are not Apple hardware, so the [legal considerations](#is-this-legal) rule it out.
+2. A macOS install takes an hour of clicking through the installer, and a fresh runner starts without it.
+3. Your own macOS runners, on real or virtual Mac hardware, are the right fit for macOS CI, and most CI services offer hosted macOS runners.
 
 You can install runners on the macOS VM itself (which does not get around the legal considerations above), but [Docker may not be the best approach](#why-docker).
 
@@ -51,7 +51,7 @@ Yes, through Xwayland, which most compositors run for X11 clients. The usual `-v
 
 ### ...run on Windows?
 
-Yes, on Windows 11 (build 22000 or later) with WSL2. Windows 10 doesn't work, even with WSL2.
+Users report that it works on Windows 11 (build 22000 or later) with WSL2, and that Windows 10 doesn't, even with WSL2. It is untested here.
 
 1. Install WSL from an administrator PowerShell with `wsl --install`. Check that it's version 2 with `wsl -l -v`.
 2. Turn on nested virtualization in `C:\Users\<you>\.wslconfig`:
@@ -71,7 +71,7 @@ On an Intel Mac, Docker ([Docker Desktop](https://www.docker.com/products/docker
 
 ### ...run on cloud services?
 
-Probably not. Cloud providers run their services inside virtual machines, and those rarely allow nested virtualization, so there's no KVM. CI runners such as GitHub Actions, Azure DevOps Pipelines, CircleCI and GitLab CI/CD are the typical case (but see [running CI/CD](#run-cicd-processes-with-it)). Some providers sell machines that allow virtualization, such as [Amazon's EC2 bare metal instances](https://aws.amazon.com/about-aws/whats-new/2018/05/announcing-general-availability-of-amazon-ec2-bare-metal-instances/), usually at a premium.
+Only where the machine exposes `/dev/kvm`. Cloud providers run their services inside virtual machines, and many don't allow nested virtualization. Some do: GitHub Actions' Linux runners have KVM, which is how alcatraz's own CI boots the image to the OpenCore picker (see [running CI/CD](#run-cicd-processes-with-it) before going further). Some providers sell machines that allow virtualization, such as [Amazon's EC2 bare metal instances](https://aws.amazon.com/about-aws/whats-new/2018/05/announcing-general-availability-of-amazon-ec2-bare-metal-instances/), usually at a premium.
 
 ## Common errors
 
