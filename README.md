@@ -56,7 +56,7 @@ High Sierra and older also need `-e NETWORKING=vmxnet3`.
 2. Open Disk Utility and erase the largest disk, around 256 GB. Leave the smaller ones alone.
 3. Quit Disk Utility, choose Reinstall macOS and install to the disk you just erased.
 
-The installer reboots several times and its time estimates mean nothing. Pick the installed disk in the picker after each reboot. Once macOS is installed, [skip the picker](#skipping-the-picker).
+The installer reboots several times and its time estimates mean nothing. Pick the installed disk in the picker after each reboot. Once macOS is installed, [leave the installer out](#after-installing).
 
 ## Keep your disk
 
@@ -64,7 +64,7 @@ The container keeps everything it writes in `/data`. Mount a host directory ther
 
 | File | What it is |
 |---|---|
-| `disk.img` | The macOS disk, created on first start. |
+| `disk.qcow2` | The macOS disk, created on first start. |
 | `installer.img` | The recovery image, downloaded on first start. Delete it to download another `MACOS_VERSION`. |
 | `ovmf-vars.fd` | UEFI variables, such as boot order. |
 | `serials.env` | Your serial numbers, see [Serial numbers](#serial-numbers). |
@@ -75,9 +75,9 @@ The container starts as root, gives `/data`, `DISK_PATH` and `INSTALLER_PATH` to
 
 Without the mount, `/data` is an anonymous Docker volume that `docker rm -v` deletes. To copy it out of such a container, see [Extract the virtual disk](FAQ.md#extract-the-virtual-disk).
 
-### Skipping the picker
+### After installing
 
-`-e BOOT_PICKER=false` boots straight into the installed disk and leaves the installer out. Once you use it, you can delete `installer.img`.
+`-e INSTALLER=false` leaves the installer out and skips its download, so you can delete `installer.img`. The picker still waits for you to choose the installed disk; add `-e BOOT_PICKER=false` to boot it without one.
 
 ## SSH and ports
 
@@ -87,10 +87,10 @@ Turn on Remote Login in macOS (System Settings, General, Sharing). With `-p 5092
 ssh <macos-user>@localhost -p 50922
 ```
 
-QEMU forwards container port 10022 (`INTERNAL_SSH_PORT`) to guest port 22, and container port 5900 (`SCREEN_SHARE_PORT`) to guest port 5900 for Screen Sharing. For other ports, list them in `PORTS`, as `PORT` or `CONTAINER:GUEST` with an optional `/udp`, and publish the container port:
+QEMU forwards the ports listed in `PORTS`, as `PORT` or `CONTAINER:GUEST` with an optional `/udp`. The default, `10022:22,5900`, forwards container port 10022 to guest port 22 for SSH and port 5900 for Screen Sharing. Setting `PORTS` replaces the default, so keep those two in the list if you need them, and publish each container port:
 
 ```bash
-    -e PORTS=10023:80,10043:443 \
+    -e PORTS=10022:22,5900,10023:80,10043:443 \
     -p 10023:10023 \
     -p 10043:10043 \
 ```
@@ -110,12 +110,13 @@ Every setting is an environment variable passed with `-e`.
 | `CPU_MODEL` | `Skylake-Client,-hle,-rtm` | QEMU CPU model. |
 | `CPU_FLAGS` | `kvm=on,vendor=GenuineIntel,+invtsc,…` | CPU flags appended to `CPU_MODEL`. |
 | `ACCEL` | `kvm:tcg` | QEMU accelerators, in order of preference. |
-| `DISK_PATH` | `/data/disk.img` | The macOS disk. Created if missing. |
+| `DISK_PATH` | `/data/disk.qcow2` | The macOS disk. Created if missing. |
 | `DISK_FORMAT` | `qcow2` | Format of `DISK_PATH`. |
 | `DISK_SIZE` | `256G` | Size of a newly created disk. |
 | `INSTALLER_PATH` | `/data/installer.img` | The recovery image. Downloaded if missing. |
 | `INSTALLER_FORMAT` | `qcow2` | Format of `INSTALLER_PATH`. |
-| `BOOT_PICKER` | `true` | `false` hides the OpenCore picker and leaves the installer out. |
+| `INSTALLER` | `true` | `false` neither downloads nor attaches the installer. See [After installing](#after-installing). |
+| `BOOT_PICKER` | `true` | `false` hides the OpenCore picker and boots the macOS disk. |
 | `BOOTDISK` | | An OpenCore bootdisk to use as is. Empty means the container picks or builds one. |
 | `SERIALS` | `default` | `random` generates serial numbers into `/data/serials.env` if it doesn't exist. See [Serial numbers](#serial-numbers). |
 | `DEVICE_MODEL` | | Mac model for the serial numbers, for example `iMacPro1,1`. |
@@ -127,13 +128,10 @@ Every setting is an environment variable passed with `-e`.
 | `WIDTH` | `1920` | Screen width. |
 | `HEIGHT` | `1080` | Screen height. A size OVMF doesn't offer, such as `1234x567`, falls back to 1280x800. |
 | `NETWORKING` | `virtio-net-pci` | QEMU network device. `vmxnet3` for High Sierra and older, `e1000-82545em` if the network is slow. |
-| `INTERNAL_SSH_PORT` | `10022` | Container port forwarded to guest port 22. |
-| `SCREEN_SHARE_PORT` | `5900` | Container port forwarded to guest port 5900. |
-| `PORTS` | | More forwarded ports, comma-separated: `PORT` or `CONTAINER:GUEST`, with an optional `/udp`. |
+| `PORTS` | `10022:22,5900` | Forwarded ports, comma-separated: `PORT` or `CONTAINER:GUEST`, with an optional `/udp`. See [SSH and ports](#ssh-and-ports). |
 | `AUDIO_DRIVER` | `alsa` | QEMU `-audiodev` backend. `none` turns audio off. |
 | `DISPLAY` | `:0.0` | X11 display for the QEMU window. |
 | `QEMU_ARGS` | | Extra QEMU arguments, split on spaces. |
-| `SSH` | `false` | `true` starts an SSH server in the container itself, separate from the guest's. |
 
 USB devices, extra disks and shared folders go through QEMU arguments in `QEMU_ARGS`. The [FAQ](FAQ.md#usb-devices) has recipes.
 
@@ -157,37 +155,38 @@ The values go into OSX-KVM's `config.plist`, or into `/data/config.plist` if you
 
 ## Upgrading from 1.x or Docker-OSX
 
-2.0 moved everything a container writes to `/data` and renamed most settings. To boot an existing disk, put it in a directory as `disk.img` and mount that directory:
+2.0 moved everything a container writes to `/data` and renamed most settings. To boot an existing disk, put it in a directory as `disk.qcow2` and mount that directory:
 
 ```bash
-mkdir mac && mv mac_hdd_ng.img mac/disk.img
+mkdir mac && mv mac_hdd_ng.img mac/disk.qcow2
 docker run ... -v ./mac:/data ghcr.io/shbernal/alcatraz:latest
 ```
 
-For a disk still inside an old container, `docker cp <container-id>:/home/arch/OSX-KVM/mac_hdd_ng.img mac/disk.img`. With `BOOT_PICKER=true`, the installer is downloaded again on first start.
+For a disk still inside an old container, `docker cp <container-id>:/home/arch/OSX-KVM/mac_hdd_ng.img mac/disk.qcow2`. Add `-e INSTALLER=false`, or the installer is downloaded again on first start.
 
 | 1.x and Docker-OSX | 2.0 |
 |---|---|
 | `SHORTNAME` | `MACOS_VERSION` |
-| `IMAGE_PATH`, `IMAGE_FORMAT` | `DISK_PATH`, `DISK_FORMAT` (default `/data/disk.img`) |
+| `IMAGE_PATH`, `IMAGE_FORMAT` | `DISK_PATH`, `DISK_FORMAT` (default `/data/disk.qcow2`) |
 | `BASESYSTEM_IMAGE`, `BASESYSTEM_FORMAT` | `INSTALLER_PATH`, `INSTALLER_FORMAT` |
-| `NOPICKER=true` | `BOOT_PICKER=false` |
+| `NOPICKER=true` | `INSTALLER=false` and `BOOT_PICKER=false` |
 | `SMP` | `CPUS` |
 | `CPU_STRING` | `CPUS` and `CORES` |
 | `CPU` | `CPU_MODEL` |
 | `CPUID_FLAGS`, `BOOT_ARGS` | `CPU_FLAGS` |
 | `KVM=accel=kvm:tcg` | `ACCEL=kvm:tcg` |
 | `EXTRA` | `QEMU_ARGS` |
-| `ADDITIONAL_PORTS=hostfwd=tcp::23-:23,` | `PORTS=23` |
+| `ADDITIONAL_PORTS=hostfwd=tcp::23-:23,` | `PORTS=10022:22,5900,23` |
+| `INTERNAL_SSH_PORT`, `SCREEN_SHARE_PORT` | `PORTS` |
 | `GENERATE_UNIQUE=true` | `SERIALS=random` |
 | `GENERATE_SPECIFIC=true` with `ENV=/env` | `/data/serials.env` |
 | `GENERATE_SPECIFIC=true` with `SERIAL=…` | `SERIAL=…` |
 | `MASTER_PLIST_URL` | `/data/config.plist`, without `{{…}}` placeholders |
 | `/home/arch/OSX-KVM` | `/opt/osx-kvm` (upstream) and `/opt/alcatraz` (scripts) |
-| `Launch.sh`, `enable-ssh.sh` | `/opt/alcatraz/launch.sh`, `/opt/alcatraz/sshd.sh` |
+| `Launch.sh` | `/opt/alcatraz/launch.sh` |
 | user `arch` | user `alcatraz` |
 
-The container's own SSH server no longer starts by default; add `-e SSH=true`. From Docker-OSX, the `:naked`, `:auto` and VNC images are gone; mount your disk and add `-e BOOT_PICKER=false` if you relied on `:naked`'s default.
+The container's own SSH server is gone; use `docker exec -it <container> bash` for a shell in the container. From Docker-OSX, the `:naked`, `:auto` and VNC images are gone; mount your disk and add `-e INSTALLER=false -e BOOT_PICKER=false` if you relied on `:naked`'s default.
 
 Disks installed with Docker-OSX's older defaults, a `Penryn` CPU and a `vmxnet3` network card, boot on the current ones. To keep the old virtual hardware for such a disk anyway:
 

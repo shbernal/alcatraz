@@ -121,7 +121,7 @@ This isn't specific to virtual hardware. The macOS installer's time estimates ar
 
 ### Installer after completing install
 
-You booted from the installer instead of the disk you installed macOS on. Reboot and pick the right disk, or [skip the picker](README.md#skipping-the-picker).
+You booted from the installer instead of the disk you installed macOS on. Reboot and pick the right disk, or [leave the installer out](README.md#after-installing).
 
 ## Running it
 
@@ -231,7 +231,7 @@ Mount the disk image into the container and attach it to a free SATA port:
 
 ### Extract the virtual disk
 
-If you mounted `/data`, the disk is already on the host as `disk.img`. Otherwise, with the container stopped, copy the whole data directory out:
+If you mounted `/data`, the disk is already on the host as `disk.qcow2`. Otherwise, with the container stopped, copy the whole data directory out:
 
 ```bash
 docker cp <container-id>:/data ./mac
@@ -243,7 +243,7 @@ To read it on Linux, connect it as a block device and mount the APFS partition w
 
 ```bash
 sudo modprobe nbd max_part=8
-sudo qemu-nbd --connect=/dev/nbd0 ./mac/disk.img
+sudo qemu-nbd --connect=/dev/nbd0 ./mac/disk.qcow2
 sudo fdisk -l /dev/nbd0
 mkdir -p ./part
 sudo apfs-fuse -o allow_other /dev/nbd0p2 ./part
@@ -257,8 +257,8 @@ sudo qemu-nbd --disconnect /dev/nbd0
 
 1. In macOS, delete what you don't need, run `sudo trimforce enable` and reboot.
 2. Zero the free space with `dd if=/dev/zero of=./empty; rm -f ./empty`, then shut down.
-3. [Extract the disk](#extract-the-virtual-disk) and rewrite it: `qemu-img convert -O qcow2 disk.img smaller.img`. Add `-c` to compress it further, at some cost in speed.
-4. `qemu-img check smaller.img` before you rely on it.
+3. [Extract the disk](#extract-the-virtual-disk) and rewrite it: `qemu-img convert -O qcow2 disk.qcow2 smaller.qcow2`. Add `-c` to compress it further, at some cost in speed.
+4. `qemu-img check smaller.qcow2` before you rely on it.
 
 ### Disk space
 

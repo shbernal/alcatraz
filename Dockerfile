@@ -47,16 +47,9 @@ LABEL org.opencontainers.image.authors=shbernal
 LABEL org.opencontainers.image.version="" org.opencontainers.image.revision="" org.opencontainers.image.created=""
 
 # mtools builds the bootdisks.
-RUN pacman -Syu --noconfirm qemu-desktop edk2-ovmf mtools python openssh \
+RUN pacman -Syu --noconfirm qemu-desktop edk2-ovmf mtools python \
     && yes | pacman -Scc \
     && useradd -m -u 1000 alcatraz
-
-# The container's own sshd, for SSH=true.
-RUN mkdir -p -m 700 /root/.ssh \
-    && touch /root/.ssh/authorized_keys \
-    && chmod 644 /root/.ssh/authorized_keys \
-    && printf '%s\n' 'AllowTcpForwarding yes' 'PermitTunnel yes' 'X11Forwarding yes' \
-        'PasswordAuthentication yes' 'PermitRootLogin yes' 'PubkeyAuthentication yes' >> /etc/ssh/sshd_config
 
 # OSX-KVM provides the firmware, the OpenCore bootdisk and its config, and the
 # macOS download script. It stays as fetched. Bump the commit on purpose and
@@ -85,11 +78,12 @@ ENV CORES=4
 ENV CPU_MODEL=Skylake-Client,-hle,-rtm
 ENV CPU_FLAGS=kvm=on,vendor=GenuineIntel,+invtsc,vmware-cpuid-freq=on,+ssse3,+sse4.2,+popcnt,+avx,+aes,+xsave,+xsaveopt,check
 ENV ACCEL=kvm:tcg
-ENV DISK_PATH=/data/disk.img
+ENV DISK_PATH=/data/disk.qcow2
 ENV DISK_FORMAT=qcow2
 ENV DISK_SIZE=256G
 ENV INSTALLER_PATH=/data/installer.img
 ENV INSTALLER_FORMAT=qcow2
+ENV INSTALLER=true
 ENV BOOT_PICKER=true
 ENV BOOTDISK=
 ENV SERIALS=default
@@ -98,13 +92,10 @@ ENV WIDTH=1920
 ENV HEIGHT=1080
 ENV NETWORKING=virtio-net-pci
 ENV MAC_ADDRESS=52:54:00:09:49:17
-ENV INTERNAL_SSH_PORT=10022
-ENV SCREEN_SHARE_PORT=5900
-ENV PORTS=
+ENV PORTS=10022:22,5900
 ENV AUDIO_DRIVER=alsa
 ENV DISPLAY=:0.0
 ENV QEMU_ARGS=
-ENV SSH=false
 
 VOLUME ["/data"]
 

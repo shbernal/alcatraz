@@ -92,13 +92,16 @@ finally:
 # launch.sh
 args = qemu_args()
 check("the installer is attached by default", arg(args, "-drive", "id=InstallMedia,"))
-check("BOOT_PICKER=false leaves the installer out", not arg(qemu_args(BOOT_PICKER="false"), "-drive", "id=InstallMedia,"))
+check("INSTALLER=false leaves the installer out", not arg(qemu_args(INSTALLER="false"), "-drive", "id=InstallMedia,"))
+check("BOOT_PICKER=false keeps the installer", arg(qemu_args(BOOT_PICKER="false"), "-drive", "id=InstallMedia,"))
 check("the bootdisk is BOOTDISK, read-only", arg(args, "-drive", "id=OpenCoreBoot,if=none,snapshot=on,format=qcow2,file=/bootdisk.qcow2"))
 check("RAM is in GB", arg(args, "-m") == ["4G"])
 check("CPUS and CORES make -smp", arg(qemu_args(CPUS="8", CORES="2"), "-smp") == ["8,cores=2"])
 check("QEMU_ARGS is split on spaces", qemu_args(QEMU_ARGS="-display none")[-2:] == ["-display", "none"])
 
-base = "user,id=net0,hostfwd=tcp::10022-:22,hostfwd=tcp::5900-:5900"
+check("PORTS forwards SSH and Screen Sharing by default",
+      arg(args, "-netdev") == ["user,id=net0,hostfwd=tcp::10022-:22,hostfwd=tcp::5900-:5900"])
+base = "user,id=net0"
 for ports, forwards in {
     "": "",
     "23": ",hostfwd=tcp::23-:23",

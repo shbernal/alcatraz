@@ -15,16 +15,15 @@ case "${RAM}" in
     half) RAM="$(( $(mem_total_kb) / 2097152 ))" ;;
 esac
 
-# BOOT_PICKER=false boots straight into the disk, without the installer attached.
 install_media=()
-if [[ "${BOOT_PICKER}" == true ]]; then
+if [[ "${INSTALLER}" == true ]]; then
     install_media=(
         -device "ide-hd,bus=sata.3,drive=InstallMedia"
         -drive "id=InstallMedia,if=none,file=${INSTALLER_PATH},format=${INSTALLER_FORMAT}"
     )
 fi
 
-# PORTS is a comma-separated list of PORT, HOST:GUEST, either with an
+# PORTS is a comma-separated list of PORT or CONTAINER:GUEST, either with an
 # optional /udp.
 forwards=""
 IFS=, read -ra port_list <<< "${PORTS}"
@@ -54,7 +53,7 @@ exec qemu-system-x86_64 -m "${RAM}G" \
     "${install_media[@]}" \
     -drive "id=MacHDD,if=none,file=${DISK_PATH},format=${DISK_FORMAT}" \
     -device ide-hd,bus=sata.4,drive=MacHDD \
-    -netdev "user,id=net0,hostfwd=tcp::${INTERNAL_SSH_PORT}-:22,hostfwd=tcp::${SCREEN_SHARE_PORT}-:5900${forwards}" \
+    -netdev "user,id=net0${forwards}" \
     -device "${NETWORKING},netdev=net0,id=net0,mac=${MAC_ADDRESS}" \
     -monitor stdio \
     -boot menu=on \

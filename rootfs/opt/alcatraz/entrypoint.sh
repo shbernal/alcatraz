@@ -5,7 +5,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
 # Container start: as root, hand /data and the KVM and sound devices to the
-# alcatraz user and optionally start sshd, then, as alcatraz, prepare
+# alcatraz user, then, as alcatraz, prepare
 # everything under /data (disk, installer, firmware variables, serials,
 # bootdisk) and hand over to launch.sh.
 set -euo pipefail
@@ -14,13 +14,10 @@ if (( EUID == 0 )); then
     chown alcatraz: /data "${DISK_PATH}" "${INSTALLER_PATH}" 2>/dev/null || true
     # The device nodes are the container's own, so this leaves the host's alone.
     chown -R alcatraz: /dev/kvm /dev/snd 2>/dev/null || true
-    if [[ "${SSH}" == true ]]; then
-        /opt/alcatraz/sshd.sh
-    fi
     HOME=/home/alcatraz exec setpriv --reuid=alcatraz --regid=alcatraz --init-groups --inh-caps=-all "$0"
 fi
 
-if [[ "${BOOT_PICKER}" == true && ! -e "${INSTALLER_PATH}" ]]; then
+if [[ "${INSTALLER}" == true && ! -e "${INSTALLER_PATH}" ]]; then
     printf '%s\n' "No installer at ${INSTALLER_PATH}, downloading macOS ${MACOS_VERSION}"
     download="$(mktemp -d)"
     (cd "${download}" && /opt/osx-kvm/fetch-macOS-v2.py --shortname="${MACOS_VERSION}")
