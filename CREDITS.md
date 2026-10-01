@@ -4,7 +4,7 @@ The most important part of the project. You.
 
 ## Fork
 
-alcatraz is a hard fork of [sickcodes/Docker-OSX](https://github.com/sickcodes/Docker-OSX) by [Sick.Codes](https://sick.codes), taken in September 2026 and modified since; the git history records every change. Docker-OSX is GPL-3.0-or-later, and so is alcatraz. Random serial numbers come from `macserial`, part of [acidanthera/OpenCorePkg](https://github.com/acidanthera/OpenCorePkg) (BSD-3-Clause), built into the image; its output format follows [sickcodes/osx-serial-generator](https://github.com/sickcodes/osx-serial-generator).
+alcatraz is a hard fork of [sickcodes/Docker-OSX](https://github.com/sickcodes/Docker-OSX) by [Sick.Codes](https://sick.codes), taken in September 2026 and modified since; the git history records every change. Docker-OSX is GPL-3.0-or-later, and so is alcatraz. Random serial numbers come from `macserial` and the recovery download from `macrecovery.py`, both part of [acidanthera/OpenCorePkg](https://github.com/acidanthera/OpenCorePkg) (BSD-3-Clause) and built into the image; the serials' output format follows [sickcodes/osx-serial-generator](https://github.com/sickcodes/osx-serial-generator).
 
 The acknowledgements and contributor list below are Docker-OSX's, kept as they were.
 

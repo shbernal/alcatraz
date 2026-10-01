@@ -18,9 +18,22 @@ if (( EUID == 0 )); then
 fi
 
 if [[ "${INSTALLER}" == true && ! -e "${INSTALLER_PATH}" ]]; then
+    # The board ID and MLB Apple's recovery server answers with each version.
+    case "${MACOS_VERSION}" in
+        high-sierra) recovery=(-b Mac-7BA5B2D9E42DDD94 -m 00000000000J80300) ;;
+        mojave)      recovery=(-b Mac-7BA5B2DFE22DDD8C -m 00000000000KXPG00) ;;
+        catalina)    recovery=(-b Mac-00BE6ED71E35EB86) ;;
+        big-sur)     recovery=(-b Mac-2BD1B31983FE1663) ;;
+        monterey)    recovery=(-b Mac-B809C3757DA9BB8D -os latest) ;;
+        ventura)     recovery=(-b Mac-4B682C642B45593E -os latest) ;;
+        sonoma)      recovery=(-b Mac-827FAC58A8FDFA22) ;;
+        sequoia)     recovery=(-b Mac-7BA5B2D9E42DDD94) ;;
+        tahoe)       recovery=(-b Mac-CFF7D910A743CAAF -os latest) ;;
+        *) printf '%s\n' "Unknown MACOS_VERSION ${MACOS_VERSION}, see README.md" >&2; exit 1 ;;
+    esac
     printf '%s\n' "No installer at ${INSTALLER_PATH}, downloading macOS ${MACOS_VERSION}"
     download="$(mktemp -d)"
-    (cd "${download}" && /opt/osx-kvm/fetch-macOS-v2.py --shortname="${MACOS_VERSION}")
+    macrecovery.py "${recovery[@]}" -o "${download}" -n BaseSystem download
     compress=()
     [[ "${INSTALLER_FORMAT}" == qcow2 ]] && compress=(-c)
     qemu-img convert -p "${compress[@]}" -O "${INSTALLER_FORMAT}" "${download}/BaseSystem.dmg" "${INSTALLER_PATH}"

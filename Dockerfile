@@ -17,17 +17,19 @@
 #           -v /tmp/.X11-unix:/tmp/.X11-unix -e "DISPLAY=${DISPLAY:-:0.0}" \
 #           ghcr.io/shbernal/alcatraz:latest
 
-# macserial generates serial numbers for SERIALS=random. OpenCorePkg's release
-# binary is static and falls back to a clock-seeded generator without glibc's
-# arc4random, so build it against the same glibc as the image.
-FROM archlinux:base-devel AS macserial
+# From OpenCorePkg: macserial generates serial numbers for SERIALS=random, and
+# macrecovery.py downloads the macOS recovery image. The release macserial is
+# static and falls back to a clock-seeded generator without glibc's arc4random,
+# so build it against the same glibc as the image.
+FROM archlinux:base-devel AS opencorepkg
 ARG OPENCORE_VERSION=1.0.8
 ARG OPENCORE_SHA256=5f08f0a3af56666d52dba49411ee541f0121ccbe43ff83d477edab38d5073e86
 RUN curl -fsSL -o /opencore.tar.gz "https://github.com/acidanthera/OpenCorePkg/archive/refs/tags/${OPENCORE_VERSION}.tar.gz" \
     && sha256sum -c <<< "${OPENCORE_SHA256}  /opencore.tar.gz" \
     && tar -xzf /opencore.tar.gz -C / \
     && make -C "/OpenCorePkg-${OPENCORE_VERSION}/Utilities/macserial" \
-    && install -Dm755 "/OpenCorePkg-${OPENCORE_VERSION}/Utilities/macserial/macserial" /usr/local/bin/macserial
+    && install -Dm755 "/OpenCorePkg-${OPENCORE_VERSION}/Utilities/macserial/macserial" /usr/local/bin/macserial \
+    && install -Dm755 "/OpenCorePkg-${OPENCORE_VERSION}/Utilities/macrecovery/macrecovery.py" /usr/local/bin/macrecovery.py
 
 FROM archlinux:base
 
@@ -51,14 +53,14 @@ RUN pacman -Syu --noconfirm qemu-desktop edk2-ovmf mtools python \
     && yes | pacman -Scc \
     && useradd -m -u 1000 alcatraz
 
-# OSX-KVM provides the firmware, the OpenCore bootdisk and its config, and the
-# macOS download script. It stays as fetched. Bump the commit on purpose and
+# OSX-KVM provides the firmware and the OpenCore bootdisk and its config. It
+# stays as fetched. Bump the commit on purpose and
 # test a boot.
 ARG OSX_KVM_REF=4c378a4b5e0b219783683012bec680325eb40719
 ADD https://github.com/kholia/OSX-KVM.git#${OSX_KVM_REF} /opt/osx-kvm
 
 COPY --chmod=755 rootfs/opt/alcatraz/ /opt/alcatraz/
-COPY --from=macserial /usr/local/bin/macserial /usr/local/bin/macserial
+COPY --from=opencorepkg /usr/local/bin/macserial /usr/local/bin/macrecovery.py /usr/local/bin/
 
 # The default bootdisks, with and without the picker. OSX-KVM's own
 # OpenCore.qcow2 leaves the resolution to OVMF, which boots at 1280x800.
