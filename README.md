@@ -43,7 +43,7 @@ This installs macOS Tahoe, with the disk in `./mac`. To install another version,
 | `monterey` | Monterey (12) | |
 | `ventura` | Ventura (13) | |
 | `sonoma` | Sonoma (14) | |
-| `sequoia` | Sequoia (15) | |
+| `sequoia` | Sequoia (15) | yes |
 | `tahoe` | Tahoe (26), the default | yes |
 
 Tested versions were installed from scratch and booted with the current OSX-KVM commit. The others are best effort: they worked with Docker-OSX but haven't been installed with the current commit. Tahoe is the last macOS for Intel Macs, so no newer version will run.
