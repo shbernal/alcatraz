@@ -26,7 +26,7 @@ Docker packages the whole setup into one command. It isn't the only way to run a
 
 ### ...run BlueBubbles/AirMessage/Beeper on it?
 
-Yes. Generate your own [serial numbers](README.md#serial-numbers) and keep them across containers; don't use the default ones. Apple may still block or disable your account. See also the [legal considerations](#is-this-legal).
+Yes. Generate your own [serial numbers](docs/configuration.md#serial-numbers) and keep them across containers; don't use the default ones. Apple may still block or disable your account. See also the [legal considerations](#is-this-legal).
 
 ### ...develop iPhone apps on it?
 
@@ -113,7 +113,7 @@ QEMU uses ALSA for audio by default and found no sound card. If macOS boots, you
 
 ### No disk to install on
 
-The installer lists no disk until you erase it in Disk Utility. See [Installing](README.md#installing).
+The installer lists no disk until you erase it in Disk Utility. See [Installing](README.md#quickstart).
 
 ### Slow installation
 
@@ -237,7 +237,7 @@ If you mounted `/data`, the disk is already on the host as `disk.qcow2`. Otherwi
 docker cp <container-id>:/data ./mac
 ```
 
-Then run it with `-v ./mac:/data`, as in [Keep your disk](README.md#keep-your-disk).
+Then run it with `-v ./mac:/data`, as in [The data directory](docs/configuration.md#the-data-directory).
 
 To read it on Linux, connect it as a block device and mount the APFS partition with [apfs-fuse](https://github.com/sgan81/apfs-fuse), read-only:
 
@@ -262,7 +262,7 @@ sudo qemu-nbd --disconnect /dev/nbd0
 
 ### Disk space
 
-Every container keeps its disk under `/var/lib/docker`. If that fills up, [mount `/data` from the host](README.md#keep-your-disk) somewhere with room, or move Docker's data directory with the `data-root` setting in `/etc/docker/daemon.json`.
+Every container keeps its disk under `/var/lib/docker`. If that fills up, [mount `/data` from the host](docs/configuration.md#the-data-directory) somewhere with room, or move Docker's data directory with the `data-root` setting in `/etc/docker/daemon.json`.
 
 ### RAM and CPUs
 
@@ -276,6 +276,6 @@ macOS expects a GPU, and QEMU's virtual display has no acceleration. [osx-optimi
 
 Apple ID, iMessage, iCloud and the App Store can refuse to sign in when they detect a virtual machine. They read the `kern.hv_vmm_present` sysctl, which is 1 under a hypervisor.
 
-`-e APPLEID_PATCH=true` adds two OpenCore kernel patches that make that sysctl read 0, from [a Proxmox forum post](https://forum.proxmox.com/threads/anyone-can-make-bluetooth-work-on-sonoma.153301/#post-697832). The container builds its bootdisk with them at every start, into OSX-KVM's config or your `/data/config.plist`, alongside your [serial numbers](README.md#serial-numbers), which Apple services need too.
+`-e APPLEID_PATCH=true` adds two OpenCore kernel patches that make that sysctl read 0, from [a Proxmox forum post](https://forum.proxmox.com/threads/anyone-can-make-bluetooth-work-on-sonoma.153301/#post-697832). The container builds its bootdisk with them at every start, into OSX-KVM's config or your `/data/config.plist`, alongside your [serial numbers](docs/configuration.md#serial-numbers), which Apple services need too.
 
 The patches break `qemu-guest-agent`, which only works when `hv_vmm_present` is 1.

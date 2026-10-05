@@ -67,12 +67,12 @@ COPY --from=opencorepkg /usr/local/bin/macserial /usr/local/bin/macrecovery.py /
 RUN /opt/alcatraz/build-bootdisk.sh /opt/alcatraz/picker.qcow2 \
     && BOOT_PICKER=false /opt/alcatraz/build-bootdisk.sh /opt/alcatraz/nopicker.qcow2
 
-# Everything a container writes lives in /data: see README.md.
+# Everything a container writes lives in /data: see docs/configuration.md.
 RUN install -d -o alcatraz -g alcatraz /data
 
 WORKDIR /data
 
-# Runtime settings, documented in README.md.
+# Runtime settings, documented in docs/configuration.md.
 ENV MACOS_VERSION=tahoe
 ENV RAM=4
 ENV CPUS=4
