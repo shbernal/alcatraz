@@ -1,6 +1,6 @@
 # Contributing
 
-Issues and pull requests are welcome, including fully AI-generated ones. Say which harness and model wrote it (for example "Claude Code, Claude Opus 5.5").
+Issues and pull requests are welcome, including fully AI-generated ones. Say which harness and model wrote it (for example "Claude Code, Claude Opus 5.5") in the pull request description; commit messages carry no AI attribution, which CI checks.
 
 ## Layout
 
