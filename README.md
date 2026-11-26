@@ -51,7 +51,7 @@ A macOS VM on Linux needs QEMU, UEFI firmware, an OpenCore bootloader configured
 - Docker, with your user in the `docker` group.
 - An X11 display for the QEMU window. Xwayland works.
 - About 60 GB free under `/var/lib/docker` for a fresh install, more with Xcode.
-- 4 GB of RAM for the guest by default, plus what the host needs. Installs are more reliable with `-e RAM=8`.
+- 8 GB of RAM for the guest while installing, plus what the host needs. The default is 4 GB, and a Tahoe install with 4 GB restarts before it finishes.
 
 Windows 11 reportedly works through WSL2 with nested virtualization, untested here. See [Can I run it on Windows?](FAQ.md#run-on-windows).
 
@@ -64,6 +64,7 @@ Windows 11 reportedly works through WSL2 with nested virtualization, untested he
        --device /dev/kvm \
        -p 50922:10022 \
        -v ./mac:/data \
+       -e RAM=8 \
        -v /tmp/.X11-unix:/tmp/.X11-unix \
        -e "DISPLAY=${DISPLAY:-:0.0}" \
        ghcr.io/shbernal/alcatraz:latest
